@@ -6,15 +6,15 @@ library("tidyverse")
 library("bigsnpr")
 set.seed(1)
 
-serv.dir <- "/well/emberson/users/bjk420/"
-base.dir <- serv.dir %&% "projects/popgen/01_pca/global_inmegen/imputed-topmed/"
+serv.dir <- ""
+base.dir <- serv.dir %&% "01_pca/public_mais/"
 work.dir <- base.dir %&% "04_mais_rsq90/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- base.dir %&% "merged_mcps/"
 plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
 bed.file <- plink.dir %&% plink.pre %&% ".bed"
 
-plink2<-"/well/emberson/shared/software/plink2/plink2"
+plink2<-"shared/software/plink2/plink2"
 
 # Determine related pairs of individuals
 ##rel <- snp_plinkKINGQC(
@@ -29,8 +29,8 @@ plink2<-"/well/emberson/shared/software/plink2/plink2"
 ## NOTE: Not enough memory for snp_plinkKINGQC command as written;
 ## Instead, running this command in the terminal:
 
-plink2=/well/emberson/shared/software/plink2/plink2
-basedir=/well/emberson/users/bjk420/projects/popgen/01_pca/global_inmegen/imputed-topmed
+plink2=shared/software/plink2/plink2
+basedir=popgen/01_pca/public_mais
 infile=$basedir/merged_mcps/merged_reference_rsq90.merge.mcps.autosomes
 outfile=$basedir/04_mais_rsq90/bigsnpr_output/king
 $plink2 \
@@ -38,7 +38,6 @@ $plink2 \
   --king-table-filter 0.0884 --make-king-table \
   --out $outfile \
   --threads 32 --memory 201479571968
-
 
 
 rel <- fread(file.dir %&% "king.kin0")

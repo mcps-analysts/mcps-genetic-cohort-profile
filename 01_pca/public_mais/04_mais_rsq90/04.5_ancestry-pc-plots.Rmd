@@ -15,9 +15,9 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 library("RColorBrewer")
-serv.dir <- "/Users/jasont/science/servers/FUSE1/"
-work.dir0 <- serv.dir %&% "users/bjk420/projects/popgen/01_pca/" %&%
-  "global_inmegen/imputed-topmed/"
+serv.dir <- ""
+work.dir0 <- serv.dir %&% "popgen/01_pca/" %&%
+  "public_mais/"
 work.dir <- work.dir0 %&% "04_mais_rsq90/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 pc.df <- fread(file.dir %&% "pc_projections_unrelateds_maf01.txt")

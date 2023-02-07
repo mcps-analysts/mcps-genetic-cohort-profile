@@ -1,5 +1,5 @@
 ---
-title: "04.6"
+title: "04.5"
 output: html_document
 ---
 
@@ -19,7 +19,7 @@ library("rgl")
 serv.dir <- ""
 work.dir0 <- serv.dir %&% "popgen/01_pca/" %&%
   "public_mais/"
-work.dir <- work.dir0 %&% "04_mais_rsq90/"
+work.dir <- work.dir0 %&% "04_mais_rsq90/mais_yri_ibs/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 #pc.df <- fread(file.dir %&% "pc_projections_unrelateds_maf01.txt")
 ```
@@ -35,7 +35,6 @@ pve.df1 <- data.frame("PC"="PC"%&%1:20,
                       stringsAsFactors = F)
 pve.df1$PVE <- pve.df1$PVE %>% prettyNum(digits=3)
 rm(svd.obj1)
-
 ```
 
 ## Look up number of samples from each source used in the models and projections
@@ -101,7 +100,12 @@ rgl_add_axes <- function(x, y, z, axis.col = "grey",
   rgl.texts(axes, text = c(xlab, ylab, zlab), color = axis.col,
             adj = c(0.5, -0.8), size = 2)
   
-
+  # Add plane
+  ##if(show.plane) 
+  ##  xlim <- xlim/1.1; zlim <- zlim /1.1
+  ##rgl.quads( x = rep(xlim, each = 2), y = c(0, 0, 0, 0),
+  ##           z = c(zlim[1], zlim[2], zlim[2], zlim[1]))
+  
   # Add bounding box decoration
   if(show.bbox){
     rgl.bbox(color=c(bbox.col[1],bbox.col[2]), alpha = 0.5, 
@@ -163,7 +167,7 @@ movie3d(spin3d(axis = c(0,1,0)), duration = 12,
 
 Look up AMR MAIS samples with >=0.99 AMR ancestry
 ```{r}
-tera.dir <- serv.dir %&% "popgen/02.1_terastructure/" %&% 
+tera.dir <- serv.dir %&% "users/bjk420/projects/popgen/02_terastructure/" %&% 
   "mais_analyses/imputed-topmed/mais_amr_afr_eur_eas_mcps10k/output_files/"
 amr99.file <- tera.dir %&% "samples-k17-p99-amr.txt"
 amr99.df <- fread(amr99.file,header=F)
@@ -173,6 +177,9 @@ amr99.df <- fread(amr99.file,header=F)
 ```{r}
 pcx<-"PC1";pcy<-"PC2";pcz<-"PC3"
 movie.name <- "three-colors_mais660_yri_ibs_mcps0_fps15"
+##mcps.df <- filter(pc.df1,population=="MCPS")
+# subset for plotting purposes
+##mcps.sub.df <- mcps.df[sample(1:dim(mcps.df)[1],size=5000,replace=F),]
 reference.df1 <- filter(pc.df1,
   plot.ID2 %in% c("KG_AFR_YRI","KG_EUR_IBS"))
 reference.df2 <- filter(pc.df1,

@@ -16,8 +16,8 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 
-serv.dir <- "/Users/jasont/science/servers/FUSE1/"
-base.dir <- serv.dir %&% "/users/bjk420/projects/popgen/01_pca/global_inmegen/imputed-topmed/"
+serv.dir <- ""
+base.dir <- serv.dir %&% "popgen/01_pca/public_mais/"
 work.dir <- base.dir %&% "04_mais_rsq90/mais_yri_ibs/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- base.dir %&% "merged_mais/"
@@ -38,8 +38,6 @@ write_rds(x=S,file.dir %&% "knn-dist-stats_unrelateds_maf01.rds")
 hist.plt <- ggplot() +
   geom_histogram(aes(S), color = "#000000",
                  fill = "#000000", alpha = 0.5) +
-  #scale_x_continuous(breaks = seq(0,0.8,0.05) , limits = c(0, NA)) +
-  #scale_y_sqrt(breaks=c(100,1000,5000,10000,20000,30000)) +
   theme_bigstatsr() +
   labs(x = "Statistic of outlierness", y = "Frequency (sqrt-scale)")
 ggsave(plot=hist.plt,filename=file.dir %&% "plots/svd_unrelateds_maf01_histogram.png",
@@ -55,7 +53,8 @@ setA0 <- plot_grid(plotlist = lapply(1:6, function(k) {
     aes(color = S) +
     scale_colour_viridis_c()
 }), scale = 0.95)
-ggsave(plot=setA0,filename=file.dir%&%"plots/outlier-detection_unrelateds_maf01_pc1-12.png",width=8,height=5)
+ggsave(plot=setA0,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01_pc1-12.png", width=8, height=5)
 
 # PCs 14-20
 setA <- plot_grid(plotlist = lapply(7:10, function(k) {
@@ -63,7 +62,8 @@ setA <- plot_grid(plotlist = lapply(7:10, function(k) {
     aes(color = S) +
     scale_colour_viridis_c()
 }), scale = 0.95)
-ggsave(plot=setA,filename=file.dir%&%"plots/outlier-detection_unrelateds_maf01_pc13-20.png",width=8,height=5)
+ggsave(plot=setA,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01_pc13-20.png", width=8, height=5)
 
 ```
 
@@ -75,14 +75,16 @@ setB0 <- plot_grid(plotlist = lapply(1:6, function(k) {
     aes(color = S > 0.9) +  # threshold based on histogram
     scale_colour_viridis_d()
 }), scale = 0.95)
-ggsave(plot=setB0,filename=file.dir%&%"plots/outlier-detection_unrelateds_maf01_pc1-12_threshold-statp9.png",width=8,height=5)
+ggsave(plot=setB0,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01_pc1-12_threshold-statp9.png", width=8, height=5)
 
 setB <- plot_grid(plotlist = lapply(7:10, function(k) {
   plot(obj.svd, type = "scores", scores = 2 * k - 1:0, coeff = 0.6) +
     aes(color = S > 0.9) +  # threshold based on histogram
     scale_colour_viridis_d()
 }), scale = 0.95)
-ggsave(plot=setB,filename=file.dir%&%"plots/outlier-detection_unrelateds_maf01_pc13-20_threshold-statp9.png",width=8,height=5)
+ggsave(plot=setB,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01_pc13-20_threshold-statp9.png", width=8, height=5)
 ```
 
 Further inspection indeed shows that MOST of the PCs are influenced by outlier samples; esepcially PC1 
@@ -104,5 +106,3 @@ lab.df <- lab.df <- fread(lab.file,header=TRUE)
 ```{r}
 outlier.df <- filter(lab.df,sample%in%most.sep)
 ```
-
-YRI show notable differences, but will keep all for now 

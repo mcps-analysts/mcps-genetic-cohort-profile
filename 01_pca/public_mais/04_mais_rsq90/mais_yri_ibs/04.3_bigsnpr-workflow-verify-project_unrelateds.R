@@ -5,17 +5,16 @@ library("bigsnpr")
 
 serv.dir <- ""
 base.dir <- serv.dir %&% "popgen/01_pca/public_mais/"
-work.dir <- base.dir %&% "04_mais_rsq90/"
+work.dir <- base.dir %&% "04_mais_rsq90/mais_yri_ibs/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- base.dir %&% "merged_mcps/"
 plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
 bed.file <- plink.dir %&% plink.pre %&% ".bed"
 
-#obj.svd2 <- readRDS(file.dir %&% "svd2_unrelateds_maf01.rds") # Note that 04.3 did not have to be run as no outliers were detected in 03.2.1
 obj.svd2 <- readRDS(file.dir %&% "svd_unrelateds_maf01.rds") # deliberately using this file here per above comment
 S <- readRDS(file.dir %&% "knn-dist-stats_unrelateds_maf01.rds")
 
-rel <- fread(file.dir %&% "bigsnpr_relationships.txt")
+rel <- fread(base.dir %&% "04_mais_rsq90/bigsnpr_output/bigsnpr_relationships.txt")
 obj.bed <- bed(bed.file)
 keep.indices <- readRDS(file.dir %&% "keep.indices.RDS")
 ind.row <- keep.indices#[S < 1.0] # No outlier thresholding is necessary here

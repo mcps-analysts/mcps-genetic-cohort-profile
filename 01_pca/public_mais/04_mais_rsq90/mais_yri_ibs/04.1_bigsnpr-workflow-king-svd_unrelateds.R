@@ -6,18 +6,18 @@ library("tidyverse")
 library("bigsnpr")
 set.seed(1)
 
-serv.dir <- "/well/emberson/users/bjk420/"
-base.dir0 <- serv.dir %&% "projects/popgen/01_pca/global_inmegen/imputed-topmed/"
+serv.dir <- ""
+base.dir0 <- serv.dir %&% "popgen/01_pca/public_mais/"
 base.dir <- base.dir0 %&% "04_mais_rsq90/"
 work.dir <- base.dir %&% "mais_yri_ibs/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- base.dir0 %&% "merged_mcps/"
 plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
 bed.file <- plink.dir %&% plink.pre %&% ".bed"
-plink2<-"/well/emberson/shared/software/plink2/plink2"
+plink2<-"shared/software/plink2/plink2"
 # Read in reference label file (from MCPS only analysis)
-lab.file <- "/well/emberson/shared/reference_datasets/mais_information/"%&%
-"reference-population-labels.txt"
+lab.file <- "shared/reference_datasets/mais_information/" %&% 
+  "reference-population-labels.txt"
 exclude.vec <- c("PUR","CLM","PEL","MXL")
 lab.df <- fread(lab.file,header=TRUE) %>%
   filter(.,region=="AMERICA") %>%
@@ -55,5 +55,3 @@ saveRDS(object=mac.threshold,file=file.dir %&% "mac.threshold.RDS") # MAC thresh
 obj.svd <- bed_autoSVD(obj.bed, ind.row = keep.indices, k = 20, min.mac=mac.threshold,
                        ncores = 1)
 saveRDS(object=obj.svd,file=file.dir %&% "svd_unrelateds_maf01.rds")
-
-## Command output:

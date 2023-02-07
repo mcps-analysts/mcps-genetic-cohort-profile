@@ -8,8 +8,8 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 
-serv.dir <- "/well/emberson/users/bjk420/"
-base.dir <- serv.dir %&% "projects/popgen/01_pca/global_inmegen/imputed-topmed/"
+serv.dir <- ""
+base.dir <- serv.dir %&% "popgen/01_pca/public_mais/"
 work.dir <- base.dir %&% "04_mais_rsq90/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- base.dir %&% "merged_mcps/"
