@@ -1,0 +1,54 @@
+---
+title: '03.2'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+work.dir.serv <- serv.dir %&%
+  "popgen/02.2_admixture/afr_eas_eur_mais_amr-select-mcps1k/"
+```
+
+First create CV error file from log file output in log directory on server
+```{bash}
+cat k_*_admix.out | grep CV > cv-error.txt
+```
+
+Read error file and format
+```{r}
+cv.df <- fread(work.dir.serv%&%"logs/cv-error.txt",header=F) %>%
+  dplyr::select(.,one_of("V3","V4"))
+names(cv.df) <- c("K","cv.error")
+cv.df$K <- purrr::map(cv.df$K,function(s){
+  strsplit(strsplit(s,split="=")[[1]][2],split=")")[[1]][1]
+}) %>% as.integer(.)
+cv.df <- arrange(cv.df,K)
+```
+
+```{r}
+plt <- ggplot(data=cv.df,
+              aes(x=K,y=cv.error)) +
+  geom_line(col="black",size=2) +
+  scale_x_continuous(breaks=cv.df$K) +
+  theme_classic() +
+  geom_point(data=arrange(cv.df,cv.error)[1,],aes(x=K,y=cv.error),
+             shape=21,color="firebrick4",fill="firebrick1",
+             size=3) +
+  ylab("Cross validation error")
+```
+
+```{r}
+library(gridExtra)
+save.plt <- grid.arrange(plt,nrow=1)
+ggsave(plot=save.plt,filename = work.dir.serv %&% "output_files/select-k.png",
+       height=4,width=6)
+```

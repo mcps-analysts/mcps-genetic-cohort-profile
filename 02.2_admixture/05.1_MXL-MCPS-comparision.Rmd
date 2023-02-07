@@ -1,0 +1,226 @@
+---
+title: '05.1'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library(data.table);library(tidyverse)
+serv.dir <- ""
+work.dir <- serv.dir %&% "popgen/02.2_admixture/" %&%
+ "afr_eas_eur_mais_amr-select-mcps1k/output_files/"
+ancestry.df <- fread(work.dir %&% "theta-k18_no-MAIS.txt")
+```
+
+Note: These proportions correspond to those with highest means in each 
+MAIS region:
+North: G18
+Northwest: G10
+Central: G9
+South: G5
+SouthEast: G6
+
+```{r}
+sub.df <- filter(ancestry.df,amr.score>=0.25,
+                 population%in%c("MCPS","MXL")) %>%
+  dplyr::select(.,one_of("sample","population",
+    "G18","G10","G9","G5","G6"))
+name.vec <- c("North","Northwest","Central","South","Southeast")
+names(sub.df)[3:7] <- name.vec
+plot.df<- tidyr::gather(sub.df,"Ancestry","Proportion",3:7)
+plot.df$Ancestry <- factor(plot.df$Ancestry,
+  levels=c("North","Northwest","Central","South","Southeast"))
+```
+
+### Mann-Whitney test 
+ns P > 0.05
+* P ≤ 0.05
+** P ≤ 0.01
+*** P ≤ 0.001
+**** P ≤ 0.0001 
+```{r}
+test.df <- c()
+for (anc in name.vec){
+  pval <- wilcox.test(
+    filter(plot.df,Ancestry==anc,population=="MXL")$Proportion,
+    filter(plot.df,Ancestry==anc,population=="MCPS")$Proportion,
+    paired=F)$p.value %>% signif(.,digits=3)
+  build.df <- data.frame("Ancestry"=anc,"p-value"=pval,
+                         stringsAsFactors = F)
+  test.df <- rbind(test.df,build.df)
+}
+test.df$Ancestry <- factor(test.df$Ancestry,
+  levels=c("North","Northwest","Central","South","Southeast"))
+test.df$stars <- purrr::map(test.df$p.value,function(p){
+  ifelse(p<=0.0001,"****",
+   ifelse(p<=0.001,"***",
+    ifelse(p<=0.01,"**",
+     ifelse(p<=0.05,"*","ns"))))
+}) %>% as.character(.)
+
+```
+
+
+```{r}
+library(viridis)
+plt <- ggplot(data=plot.df,
+              aes(x=population,y=Proportion)) + 
+  geom_boxplot(aes(fill=population),show.legend = F) + 
+  geom_text(data=test.df,
+    aes(label=stars%&%"\np="%&%p.value),
+    x=1.5,y=0.99,size=3) + 
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2)) + 
+  scale_fill_manual(values=viridis(10)[c(5,7)])+
+  facet_wrap(~Ancestry,nrow=1) + 
+  theme(
+    panel.background=element_rect(fill="white",colour=NA),
+    panel.border=element_rect(fill=NA,colour="grey20"), 
+    panel.grid=element_blank(),
+    #panel.grid.minor = element_line(size = rel(0.5)), 
+    strip.background = element_rect(fill = "white", 
+                colour = "black")) +
+  xlab("Population")
+```
+
+
+```{r}
+ggsave(plot=plt,filename=work.dir%&%
+      "MXL-vs-MCPS_admixture.png",width=6,height=3.3)
+```
+
+
+## Including European 
+
+Note: These proportions correspond to those with highest means in each 
+MAIS region:
+North: G18
+Northwest: G10
+Central: G9
+South: G5
+SouthEast: G6
+
+```{r}
+sub.df2 <- filter(ancestry.df,
+                 population%in%c("MCPS","MXL")) %>%
+  dplyr::select(.,one_of("sample","population","afr.score",
+    "eas.score","eur.score","amr.score",
+    "G18","G10","G9","G5","G6"))
+name.vec2 <- c("African","East Asian","European","Native American",
+              "North","Northwest","Central","South","Southeast")
+names(sub.df2)[3:11] <- name.vec2
+plot.df2<- tidyr::gather(sub.df2,"Ancestry","Proportion",3:11)
+plot.df2$Ancestry <- factor(plot.df2$Ancestry,
+  levels=c("African","East Asian","European","Native American",
+              "North","Northwest","Central","South","Southeast"))
+```
+
+### Mann-Whitney test 
+ns P > 0.05
+* P ≤ 0.05
+** P ≤ 0.01
+*** P ≤ 0.001
+**** P ≤ 0.0001 
+```{r}
+test.df2 <- c()
+for (anc in name.vec2){
+  pval <- wilcox.test(
+    filter(plot.df2,Ancestry==anc,population=="MXL")$Proportion,
+    filter(plot.df2,Ancestry==anc,population=="MCPS")$Proportion,
+    paired=F)$p.value %>% signif(.,digits=3)
+  build.df <- data.frame("Ancestry"=anc,"p-value"=pval,
+                         stringsAsFactors = F)
+  test.df2 <- rbind(test.df2,build.df)
+}
+test.df2$Ancestry <- factor(test.df2$Ancestry,
+  levels=c("African","East Asian","European","Native American",
+              "North","Northwest","Central","South","Southeast"))
+test.df2$stars <- purrr::map(test.df2$p.value,function(p){
+  ifelse(p<=0.0001,"****",
+   ifelse(p<=0.001,"***",
+    ifelse(p<=0.01,"**",
+     ifelse(p<=0.05,"*","ns"))))
+}) %>% as.character(.)
+
+```
+
+
+```{r}
+mex.vec <- c("North","Northwest","Central","South","Southeast")
+mexeur.vec <- c("North","Northwest","Central",
+                "South","Southeast","European")
+
+library(viridis)
+plt2a <- ggplot(data=filter(plot.df2,!(Ancestry%in%mex.vec)),
+              aes(x=population,y=Proportion)) + 
+  geom_boxplot(aes(fill=population),show.legend = F) + 
+  geom_text(data=filter(test.df2,!(Ancestry%in%mex.vec)),
+    aes(label=stars%&%"\np="%&%p.value),
+    x=1.5,y=0.99,size=3) + 
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2)) + 
+  scale_fill_manual(values=viridis(10)[c(5,7)])+
+  facet_wrap(~Ancestry,nrow=1) + 
+  theme(
+    panel.background=element_rect(fill="white",colour=NA),
+    panel.border=element_rect(fill=NA,colour="grey20"), 
+    panel.grid=element_blank(),
+    #panel.grid.minor = element_line(size = rel(0.5)), 
+    strip.background = element_rect(fill = "white", 
+                colour = "black")) +
+  xlab("Population")
+
+plt2b <- ggplot(data=filter(plot.df2,(Ancestry%in%mex.vec)),
+              aes(x=population,y=Proportion)) + 
+  geom_boxplot(aes(fill=population),show.legend = F) + 
+  geom_text(data=filter(test.df2,(Ancestry%in%mex.vec)),
+    aes(label=stars%&%"\np="%&%p.value),
+    x=1.5,y=0.99,size=3) + 
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2)) + 
+  scale_fill_manual(values=viridis(10)[c(5,7)])+
+  facet_wrap(~Ancestry,nrow=1) + 
+  theme(
+    panel.background=element_rect(fill="white",colour=NA),
+    panel.border=element_rect(fill=NA,colour="grey20"), 
+    panel.grid=element_blank(),
+    #panel.grid.minor = element_line(size = rel(0.5)), 
+    strip.background = element_rect(fill = "white", 
+                colour = "black")) +
+  xlab("Population")
+
+plt2c <- ggplot(data=filter(plot.df2,(Ancestry%in%mexeur.vec)),
+              aes(x=population,y=Proportion)) + 
+  geom_boxplot(aes(fill=population),show.legend = F) + 
+  geom_text(data=filter(test.df2,(Ancestry%in%mexeur.vec)),
+    aes(label=stars%&%"\np="%&%p.value),
+    x=1.5,y=0.99,size=3) + 
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2)) + 
+  scale_fill_manual(values=viridis(10)[c(5,7)])+
+  facet_wrap(~Ancestry,nrow=1) + 
+  theme(
+    panel.background=element_rect(fill="white",colour=NA),
+    panel.border=element_rect(fill=NA,colour="grey20"), 
+    panel.grid=element_blank(),
+    #panel.grid.minor = element_line(size = rel(0.5)), 
+    strip.background = element_rect(fill = "white", 
+                colour = "black")) +
+  xlab("Population")
+```
+
+
+```{r}
+ggsave(plot=plt2a,filename=work.dir%&%
+      "MXL-vs-MCPS_admixture_continental.png",
+      width=8,height=3.3)
+ggsave(plot=plt2b,filename=work.dir%&%
+      "MXL-vs-MCPS_admixture_mexico-only.png",
+      width=8,height=3.3)
+ggsave(plot=plt2c,filename=work.dir%&%
+      "MXL-vs-MCPS_admixture_mexico-european.png",
+      width=10,height=3.3)
+```
+
