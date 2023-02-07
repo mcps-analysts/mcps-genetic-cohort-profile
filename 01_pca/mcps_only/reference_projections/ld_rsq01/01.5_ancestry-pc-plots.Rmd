@@ -1,0 +1,820 @@
+---
+title: "04.5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+library("bigsnpr")
+library("RColorBrewer")
+serv.dir0 <- ""
+serv.dir <- serv.dir0 %&% ""
+work.dir0 <- serv.dir %&% "popgen/01_pca/public_mais/04_mais_rsq90/"
+work.dir <- serv.dir %&% "popgen/01_pca/mcps_only/" %&%
+  "reference_projections/ld_rsq01/"
+file.dir <- work.dir %&% "bigsnpr_output/"
+pc.df <- fread(file.dir %&%
+                 "pc_projections_unrelateds_maf01-mcps-only.txt")
+```
+
+## Append population labels to PC projection output
+
+```{r}
+onekg.df <- fread(serv.dir0 %&% "shared/reference_datasets/1000_genomes/"
+ %&% "integrated_call_samples_v3.20130502.ALL.panel",
+                  header=F) %>% dplyr::select(one_of("V1","V2","V3"))
+hgdp.df <- fread(serv.dir0 %&% "shared/reference_datasets/" %&%
+                   "hgdp_sanger/hgdp_wgs.20190516.metadata.txt",
+                 header=T) %>%
+  dplyr::select(one_of("sample","population","region"))
+```
+
+HGDP has 54 populations and seven regions
+[1] "CENTRAL_SOUTH_ASIA" "AFRICA"             "OCEANIA"            "EUROPE"     
+[5] "MIDDLE_EAST"        "AMERICA"            "EAST_ASIA"  
+
+1KG has 26 populations and five superpopulations
+[1] "EUR" "EAS" "AMR" "SAS" "AFR"
+
+```{r}
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="EUR","EUROPE",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="EAS","EAST_ASIA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="AMR","AMERICA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="SAS","CENTRAL_SOUTH_ASIA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="AFR","AFRICA",s)
+}) %>% as.character(.)
+names(onekg.df) <- c("sample","population","region")
+```
+
+MAIS datasets 
+
+```{r}
+mais.dir <- serv.dir0 %&% "mcps/data/MAIS_array_data/"
+affy.df <- fread(mais.dir %&% "MAIS.affy6.0.2021.ind",header=F) %>% 
+  dplyr::select(.,one_of("V1","V3"))
+omni.df <- fread(mais.dir %&% "MAIS.omni2.5.2021.ind",header=F) %>% 
+  dplyr::select(.,one_of("V1","V3"))
+names(affy.df) <- c("sample","population")
+names(omni.df) <- c("sample","population")
+affy.df$sample[!(affy.df$sample %in% pc.df$sample.ID)]
+omni.df$sample[!(omni.df$sample %in% pc.df$sample.ID)]
+omni.df$sample <- purrr::map(omni.df$sample,function(s){
+  strsplit(x=s,split=":")[[1]][1]
+}) %>% as.character(.)
+omni.df$sample[!(omni.df$sample %in% pc.df$sample.ID)]
+mais.df <- rbind(affy.df,omni.df)
+mais.df$region <- "AMERICA"
+```
+
+```{r}
+ref.df <- rbind(hgdp.df,onekg.df,mais.df)
+write.table(x=ref.df,file=file.dir%&%
+  "reference-population-labels.txt",sep="\t",
+  quote=F,col.names=T,row.names=F)
+```
+
+```{r}
+add_pop_info <- function(pc.df){
+  pb <- txtProgressBar(min=0,max=dim(pc.df)[1],style=3)
+  out.df <- c()
+  for (i in 1:dim(pc.df)[1]){
+    setTxtProgressBar(pb,i)
+    row.df <- pc.df[i,]
+    if (row.df$sample.ID %in% ref.df$sample){
+      sub.df <- filter(ref.df,sample==row.df$sample.ID)
+      names(sub.df)[1] <- "sample.ID"
+      build.df <- dplyr::inner_join(sub.df,row.df,by="sample.ID")
+    } else{
+      sub.df <- data.frame("sample.ID"=row.df$sample.ID,
+                           "population"="MCPS","region"="AMERICA",
+                           stringsAsFactors = F)
+      build.df <- dplyr::inner_join(sub.df,row.df,by="sample.ID")
+    }
+    out.df <- rbind(out.df,build.df)
+  }
+  return(out.df)
+}
+
+
+```
+
+```{r}
+pc.df1 <- add_pop_info(pc.df)
+```
+
+## Look up model information from SVD objects
+
+```{r}
+svd.obj1 <- readRDS(file.dir %&% "svd_unrelateds_maf01-mcps-only.rds")
+(svd.obj1$u %>% dim(.))[1] # 58443 subjects
+(svd.obj1$v %>% dim(.))[1] # 18725 SNPs
+pve.df1 <- data.frame("PC"="PC"%&%1:20,
+                      "PVE"=((svd.obj1$d^2)/sum(svd.obj1$d^2))*100,
+                      stringsAsFactors = F)
+pve.df1$PVE <- pve.df1$PVE %>% prettyNum(digits=3)
+rm(svd.obj1)
+
+```
+
+## Look up number of samples from each source used in the models and projections
+
+```{r}
+root.dir <- "" %&%
+  "popgen/01_pca/public_mais/imputed-topmed/"
+plink.dir <- root.dir %&% "merged_mcps/"
+plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
+bed.file <- plink.dir %&% plink.pre %&% ".bed"
+rel <- fread(work.dir0 %&% "bigsnpr_output/" %&%
+          "bigsnpr_relationships.txt")
+obj.bed <- bed(bed.file)
+```
+
+Analysis 1: HGDP, 1KG, MAIS, and MCPS samples used in PCA, projected to remaining MCPS
+
+Model sample counts 
+```{r}
+keep.indices <- readRDS(file.dir %&% "keep.indices.RDS")
+ind.row <- keep.indices#[S < 1.0] # No outlier thresholding is necessary here
+subject.vec <- obj.bed$fam$sample.ID[keep.indices]
+subject.df <- as.data.frame(subject.vec) # from 04.4 script
+df1 <- subject.df %>% 
+  filter(.,(grepl(x=subject.vec,pattern="HGDP"))) 
+df2 <- subject.df %>% 
+  filter(.,(grepl(x=subject.vec,pattern="MCPS"))) 
+df3 <- subject.df %>% filter(.,!(grepl(x=subject.vec,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=subject.vec,pattern="HG")) 
+df4 <- subject.df %>% filter(.,!(grepl(x=subject.vec,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=subject.vec,pattern="NA"))
+remove.vec <- rbind(df1,df2,df3,df4)$subject.vec
+mais.df <- filter(subject.df,!(subject.vec%in%remove.vec)) 
+samples.hgdp <- df1$subject.vec
+samples.1kg.hg <- df3$subject.vec
+samples.1kg.na <- df4$subject.vec
+samples.1kg <- c(samples.1kg.hg,samples.1kg.na)
+samples.mcps <- df2$subject.vec
+samples.mais <- mais.df$subject.vec # 
+samples.hgdp %>% length(.) # 0 HGDP samples
+samples.1kg %>% length(.) # 0 1KG samples
+samples.mcps %>% length(.) # 58443 MCPS samples
+samples.mais %>% length(.) # 0 MCPS samples
+```
+
+Projected sample counts
+```{r}
+projected.count <- dim(pc.df1)[1]-length(subject.vec) # 
+projected.samples <- pc.df1$sample.ID[!(pc.df1$sample.ID %in% subject.vec)]
+projected.samples %>% length(.) #  samples
+proj.df <- as.data.frame(projected.samples)
+names(proj.df) <- c("subject.vec")
+pdf1 <- proj.df %>% 
+  filter(.,(grepl(x=subject.vec,pattern="HGDP")))
+pdf2 <- proj.df %>% 
+  filter(.,(grepl(x=subject.vec,pattern="MCPS"))) 
+pdf3 <- proj.df %>% filter(.,!(grepl(x=subject.vec,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=subject.vec,pattern="HG"))  
+pdf4 <- proj.df %>% filter(.,!(grepl(x=subject.vec,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=subject.vec,pattern="NA")) 
+remove.vec <- rbind(pdf1,pdf2,pdf3,pdf4)$subject.vec
+mais.pdf <- filter(proj.df,!(subject.vec%in%remove.vec))
+projected.hgdp <- pdf1$subject.vec
+projected.1kg.hg <- pdf3$subject.vec
+projected.1kg.na <- pdf4$subject.vec
+projected.1kg <- c(projected.1kg.hg,projected.1kg.na)
+projected.mcps <- pdf2$subject.vec
+projected.mais <- mais.pdf$subject.vec
+projected.hgdp %>% length(.) # 929 HGDP samples
+projected.1kg %>% length(.) # 2504 1KG samples
+projected.mcps %>% length(.) # 80068 MCPS samples
+projected.mais %>% length(.) # 716 MCPS samples
+
+pb <- txtProgressBar(min=0,max=dim(pc.df1)[1],style=3)
+pc.df1$sample.type <- purrr::map(1:dim(pc.df1)[1],function(i){
+  setTxtProgressBar(pb,i)
+  s <- pc.df1$sample.ID[i]
+  ifelse(s%in%subject.vec,"model","projected")
+}) %>% as.character(.)
+
+```
+
+
+```{r}
+write.table(x=pc.df1,file=file.dir%&%
+              "pc_projections_unrelateds_maf01_pop-info.txt",
+            quote=F,sep="\t",row.names=F)
+```
+
+
+```{r}
+#pc.df1 <- fread(file.dir %&%
+#              "pc_projections_unrelateds_maf01_pop-info.txt")
+```
+
+
+## Create PC Plots color-coded by population/ancestry
+
+### PC Analysis 1
+
+```{r}
+full.samples.hgdp <- (pc.df1 %>% 
+  filter(.,(grepl(x=sample.ID,pattern="HGDP"))))$sample.ID # 929
+full.samples.mcps <- (pc.df1 %>% 
+  filter(.,(grepl(x=sample.ID,pattern="MCPS"))))$sample.ID # 138511
+full.samples.1kg.hg <- (pc.df1 %>% filter(.,!(grepl(x=sample.ID,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=sample.ID,pattern="HG")))$sample.ID # 1656 
+full.samples.1kg.na <- (pc.df1 %>% filter(.,!(grepl(x=sample.ID,pattern="HGDP"))) %>% 
+  filter(.,grepl(x=sample.ID,pattern="NA")))$sample.ID # 848 
+remove.vec.full <- c(full.samples.hgdp,full.samples.mcps,
+                     full.samples.1kg.hg,full.samples.1kg.na)
+full.samples.mais <- filter(pc.df1,!(sample.ID%in%remove.vec.full))$sample.ID
+```
+
+
+Create Plot ID variable
+```{r}
+plot.ID1 <- c()
+plot.ID2 <- c()
+pb <- txtProgressBar(min=0,max=dim(pc.df1)[1],style=3)
+for (i in 1:dim(pc.df1)[1]){
+  setTxtProgressBar(pb,i)
+  row.df <- pc.df1[i,] %>%
+    dplyr::select(one_of("sample.ID","population","region","sample.type"))
+  samp.id <- row.df$sample.ID
+  source <- ifelse(samp.id %in% full.samples.hgdp,"HGDP",
+             ifelse(samp.id %in% full.samples.1kg.hg,"KG",
+              ifelse(samp.id %in% full.samples.1kg.na,"KG",
+               ifelse(samp.id %in% full.samples.mais,"MAIS","MCPS"))))
+  region <- row.df$region
+  if (source=="HGDP"){
+    pop <- ifelse(region=="EUROPE","EUR",
+           ifelse(region=="AFRICA","AFR",
+           ifelse(region=="AMERICA","AMR",
+           ifelse(region=="EAST_ASIA","EAS",
+           ifelse(region=="CENTRAL_SOUTH_ASIA","C-SAS",
+           ifelse(region=="OCEANIA","OCN","ME"))))))
+  } else if (source=="KG"){
+    pop <- ifelse(region=="EUROPE","EUR",
+           ifelse(region=="AFRICA","AFR",
+           ifelse(region=="AMERICA","AMR",
+           ifelse(region=="EAST_ASIA","EAS","SAS"))))
+  } else{
+    pop <- "AMR"
+  }
+  model <- row.df$sample.type
+  mod <- ifelse(model=="model","(M)","(P)")
+  pid1 <- source %&% "_" %&% pop #%&% " " %&% mod
+  pid2 <- source %&% "_" %&% pop %&% "_" %&%
+    row.df$population # %&% " " %&% mod
+  plot.ID1 <- append(plot.ID1,pid1)
+  plot.ID2 <- append(plot.ID2,pid2)
+}
+pc.df1$plot.ID1 <- plot.ID1
+pc.df1$plot.ID2 <- plot.ID2
+```
+
+```{r}
+write.table(x=pc.df1,file=file.dir%&%
+              "pc_projections_unrelateds_maf01_pop-info.txt",
+            quote=F,sep="\t",row.names=F)
+```
+
+## PCA plots 
+
+Density functions
+```{r}
+pc_density <- function(pc,pc.df){
+  plt <- ggplot(data=filter(pc.df,population=="MCPS"),
+                       aes_string(pc)) + 
+    geom_density(aes(fill=plot.ID1),alpha=0.8) + 
+    scale_fill_manual(values=c("gray25"),
+                      name="Source",guide="none") 
+  return(plt)
+}
+
+pc_density_horizontal <- function(pc,pc.df,expand.vec=c(0.0,0.0)){
+  pc.vector <- data.frame(pc.df)[,names(pc.df)==pc]
+  plt <- pc_density(pc,pc.df) +  
+    theme(panel.border=element_blank(),panel.grid=element_blank(),
+          axis.line=element_blank(),
+          panel.background = element_blank(),
+          axis.text=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title=element_blank(),
+          plot.margin = unit(c(0,6,-1,18), "mm")) + 
+    scale_x_continuous(limits=c(min(pc.vector),max(pc.vector)),
+                       expand=expand.vec)
+}
+
+pc_density_vertical <- function(pc,pc.df,expand.vec=c(0.0,0.0)){
+  pc.vector <- data.frame(pc.df)[,names(pc.df)==pc]
+  plt <- pc_density(pc,pc.df) + 
+    theme(panel.border=element_blank(),panel.grid=element_blank(),
+          axis.line=element_blank(),
+          panel.background = element_blank(),
+          axis.text=element_blank(),   
+          axis.ticks=element_blank(),
+          axis.title=element_blank(),
+          plot.margin = unit(c(7,0,14,-3), "mm")) + 
+    scale_x_continuous(limits=c(min(pc.vector),max(pc.vector)),
+                       expand=expand.vec) +
+  coord_flip()
+}
+```
+
+
+### PCA Plots (three colors)
+Show EUR, AFR, MAIS_ALL samples projected onto it using 3 colors
+
+Set up plotting data frame (i.e. id labels)
+```{r}
+col.vir <- viridis::viridis(20)
+cvec <- brewer.pal(12,name="Paired")
+pc.df1$plot.ID1 <- factor(pc.df1$plot.ID1,
+ levels=as.character(unique(arrange(pc.df1,region,sample.type)$plot.ID1)))
+reg.vec <- c("AMERICA","AFRICA","EUROPE")
+```
+
+PCA functions
+```{r}
+pca_plot_v1 <- function(pcx,pcy){
+  mcps.df <- filter(pc.df1,population=="MCPS")
+  reference.df <- filter(pc.df1,population!="MCPS",
+    region%in%reg.vec,!(plot.ID1%in%c("KG_AMR","HGDP_AMR")))
+  pc.plt <- ggplot(data=mcps.df,
+                aes_string(x=pcx,y=pcy)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type),
+             size=2.5) +
+  geom_point(data=reference.df,
+             shape=21,aes(fill=plot.ID1,alpha=sample.type),
+             size=2.5) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  scale_fill_manual(values=c(col.vir[20],cvec[11],
+                             col.vir[17],#cvec[4],cvec[3],
+                             cvec[1],col.vir[10]),name="Source",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  xlab(label=pcx%&%" (" %&% filter(pve.df1,PC==pcx)$PVE %&% "%)") +
+  ylab(label=pcy%&%" (" %&% filter(pve.df1,PC==pcy)$PVE %&% "%)") +
+  theme_classic() 
+  
+  legend.obj <- get_legend(pc.plt)
+  pc.plt <- pc.plt + theme(legend.position="none")
+  return(list(pc.plt,legend.obj))
+}
+
+pca_plot_set_v1 <- function(pcx,pcy){
+  hist.x.plt <- pc_density_horizontal(pcx,pc.df1)
+  hist.y.plt <- pc_density_vertical(pcy,pc.df1)
+  pc.list <- pca_plot_v1(pcx,pcy)
+  pc.plt <- pc.list[[1]]
+  # grid Extra plot 
+  empty <- ggplot()+geom_point(aes(1,1), colour="white")+
+            theme(axis.ticks=element_blank(), 
+              panel.background=element_blank(), 
+              axis.text.x=element_blank(),
+              axis.text.y=element_blank(),   
+              axis.title.x=element_blank(),
+              axis.title.y=element_blank())
+ plt.set <- grid.arrange(hist.x.plt, empty, pc.plt, hist.y.plt,
+              ncol=2, nrow=2,widths=c(7, 0.3), heights=c(0.6, 7))
+  complete.plt <- plot_grid(plt.set,pc.list[[2]],
+                            rel_widths=c(1, 0.2))
+
+}
+```
+
+Generate PC plots 
+```{r}
+plt1a <- pca_plot_set_v1("PC1","PC2")
+plt1b <- pca_plot_set_v1("PC1","PC3")
+plt1c <- pca_plot_set_v1("PC1","PC4")
+plt1d <- pca_plot_set_v1("PC2","PC3")
+plt1e <- pca_plot_set_v1("PC2","PC4")
+plt1f <- pca_plot_set_v1("PC3","PC4")
+```
+
+Save PC plots 
+```{r}
+ggsave(plot=plt1a,filename=file.dir %&% "plots/pca_model1_pc1vs2_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1a,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs2_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+
+ggsave(plot=plt1b,filename=file.dir %&% "plots/pca_model1_pc1vs3_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1b,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs3_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+
+ggsave(plot=plt1c,filename=file.dir %&% "plots/pca_model1_pc1vs4_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1c,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs4_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+
+ggsave(plot=plt1d,filename=file.dir %&% "plots/pca_model1_pc2vs3_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1d,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs3_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+
+ggsave(plot=plt1e,filename=file.dir %&% "plots/pca_model1_pc2vs4_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1e,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs4_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+
+ggsave(plot=plt1f,filename=file.dir %&% "plots/pca_model1_pc3vs4_three-afr-eur-mais.png",
+       height=5,width=8.5)
+ggsave(plot=plt1f,filename=file.dir %&% 
+ "plots/pca_model1_pc3vs4_three-afr-eur-mais.svg",
+       height=5,width=8.5)
+```
+
+
+### PCA Plots (six colors)
+Show EUR, AFR, MAIS_ALL + HGDP_MAYA + HGDP_PIM + KG_MEX samples projected onto it using 6 colours
+
+Set up plotting data frame (i.e. id labels)
+```{r}
+cvec <- brewer.pal(12,name="Paired")
+cvec2 <- viridis::magma(100)
+cvec3 <- brewer.pal(11,"Spectral")
+keep.ids <- c("MAIS_AMR","MCPS_AMR","KG_EUR","HGDP_EUR",
+ "KG_AFR","HGDP_AFR","KG_AMR_MXL","HGDP_AMR_Maya","HGDP_AMR_Pima")
+
+mcps.df <- filter(pc.df1,plot.ID1=="MCPS_AMR")
+mais.df <- filter(pc.df1,plot.ID1=="MAIS_AMR")
+afr.df <- filter(pc.df1,plot.ID1%in%c("KG_AFR","HGDP_AFR"))
+afr.df$plot.ID1 <- "AFR"
+eur.df <- filter(pc.df1,plot.ID1%in%c("KG_EUR","HGDP_EUR"))
+eur.df$plot.ID1 <- "EUR"
+mxl.df <- filter(pc.df1,plot.ID2=="KG_AMR_MXL")
+mxl.df$plot.ID1 <- "KG_AMR_MXL"
+maya.df <- filter(pc.df1,plot.ID2=="HGDP_AMR_Maya")
+maya.df$plot.ID1 <- "HGDP_AMR_Maya"
+pima.df <- filter(pc.df1,plot.ID2=="HGDP_AMR_Pima")
+pima.df$plot.ID1 <- "HGDP_AMR_Pima"
+pc.df2 <- rbind(mcps.df,mais.df,afr.df,eur.df,
+                mxl.df,maya.df,pima.df)
+
+updated.levels <- c("AFR","EUR","MAIS_AMR","KG_AMR_MXL",
+                    "HGDP_AMR_Maya","HGDP_AMR_Pima")
+
+pc.df2$plot.ID1 <- factor(pc.df2$plot.ID1,
+ levels=updated.levels)
+
+```
+
+PCA functions
+```{r}
+pca_plot_v2 <- function(pcx,pcy){
+  mcps.df <- filter(pc.df2,population=="MCPS")
+  reference.df <- filter(pc.df2,population!="MCPS")
+  pc.plt <- ggplot(data=mcps.df,
+                aes_string(x=pcx,y=pcy)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type),
+             size=2.5) +
+  geom_point(data=reference.df,
+             shape=21,aes(fill=plot.ID1,alpha=sample.type),
+             size=2.5) +
+  scale_alpha_discrete(range=c(0.95,0.5),name="Sample Type",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  scale_fill_manual(values=c(col.vir[20],col.vir[10],
+                             col.vir[17],cvec3[9],cvec2[50],
+                             cvec3[2]),name="Source",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  xlab(label=pcx%&%" (" %&% filter(pve.df1,PC==pcx)$PVE %&% "%)") +
+  ylab(label=pcy%&%" (" %&% filter(pve.df1,PC==pcy)$PVE %&% "%)") +
+  theme_classic() 
+  
+  legend.obj <- get_legend(pc.plt)
+  pc.plt <- pc.plt + theme(legend.position="none")
+  return(list(pc.plt,legend.obj))
+}
+
+pca_plot_set_v2 <- function(pcx,pcy){
+  hist.x.plt <- pc_density_horizontal(pcx,pc.df1)
+  hist.y.plt <- pc_density_vertical(pcy,pc.df1)
+  pc.list <- pca_plot_v2(pcx,pcy)
+  pc.plt <- pc.list[[1]]
+  # grid Extra plot 
+  empty <- ggplot()+geom_point(aes(1,1), colour="white")+
+            theme(axis.ticks=element_blank(), 
+              panel.background=element_blank(), 
+              axis.text.x=element_blank(),
+              axis.text.y=element_blank(),   
+              axis.title.x=element_blank(),
+              axis.title.y=element_blank())
+ plt.set <- grid.arrange(hist.x.plt, empty, pc.plt, hist.y.plt,
+              ncol=2, nrow=2,widths=c(7, 0.3), heights=c(0.6, 7))
+  complete.plt <- plot_grid(plt.set,pc.list[[2]],
+                            rel_widths=c(1, 0.2))
+
+}
+```
+
+Generate PC plots 
+```{r}
+plt2a <- pca_plot_set_v2("PC1","PC2")
+plt2b <- pca_plot_set_v2("PC1","PC3")
+plt2c <- pca_plot_set_v2("PC1","PC4")
+plt2d <- pca_plot_set_v2("PC2","PC3")
+plt2e <- pca_plot_set_v2("PC2","PC4")
+plt2f <- pca_plot_set_v2("PC3","PC4")
+```
+
+Save PC plots 
+```{r}
+ggsave(plot=plt2a,filename=file.dir %&% "plots/pca_model1_pc1vs2_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2a,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs2_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+
+ggsave(plot=plt2b,filename=file.dir %&% "plots/pca_model1_pc1vs3_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2b,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs3_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+
+ggsave(plot=plt2c,filename=file.dir %&% "plots/pca_model1_pc1vs4_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2c,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs4_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+
+ggsave(plot=plt2d,filename=file.dir %&% "plots/pca_model1_pc2vs3_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2d,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs3_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+
+ggsave(plot=plt2e,filename=file.dir %&% "plots/pca_model1_pc2vs4_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2e,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs4_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+
+ggsave(plot=plt2f,filename=file.dir %&% "plots/pca_model1_pc3vs4_six-afr-eur-mais-maya-pima-mex.png",
+       height=5,width=9)
+ggsave(plot=plt2f,filename=file.dir %&% 
+ "plots/pca_model1_pc3vs4_six-afr-eur-mais-maya-pima-mex.svg",
+       height=5,width=9)
+```
+
+
+### PCA Plots (MAIS-only / five colors)
+Show 5 MAIS subgroups projected onto it using 5 colors
+
+```{r}
+mais.ref.df <- fread(serv.dir0 %&%"shared/reference_datasets/" %&%
+        "mais_information/mais-population-info_NJtree-regions.txt")
+```
+
+
+Set up plotting data frame (i.e. id labels)
+```{r}
+pc.df3 <- pc.df1#[sample(142660,size=500,replace=F),]
+pb <- txtProgressBar(min=0,max=dim(pc.df2)[1],style=3)
+plot.ID1 <- c() 
+for (i in 1:dim(pc.df3)[1]){
+  setTxtProgressBar(pb,i)
+  sub.df <- pc.df3[i,]
+  if (sub.df$plot.ID1=="MAIS_AMR"){
+    new.name <- "MAIS_" %&% filter(mais.ref.df,
+          mais.population==sub.df$population)$Region
+    plot.ID1 <- append(plot.ID1,new.name)
+  } else{
+    plot.ID1 <- append(plot.ID1,as.character(sub.df$plot.ID1))
+  }
+}
+
+cvec <- brewer.pal(12,name="Paired")
+cvec2 <- viridis::magma(100)
+updated.levels <- c("KG_AFR","HGDP_AFR","KG_EUR","HGDP_EUR",
+    "KG_AMR","HGDP_AMR","MAIS_North","MAIS_Northwest",
+    "MAIS_Central","MAIS_South","MAIS_Southeast","MCPS_AMR",
+    "KG_SAS","HGDP_C-SAS","KG_EAS","HGDP_EAS","HGDP_ME","HGDP_OCN")
+pc.df3$plot.ID1 <- plot.ID1
+pc.df3$plot.ID1 <- factor(pc.df3$plot.ID1,
+ levels=updated.levels)
+reg.vec <- c("AMERICA","AFRICA","EUROPE")
+
+```
+
+PCA functions
+```{r}
+pca_plot_v3 <- function(pcx,pcy){
+  mcps.df <- filter(pc.df3,population=="MCPS")
+  reference.df <- filter(pc.df3,grepl(pattern="MAIS",x=plot.ID1))
+  pc.plt <- ggplot(data=mcps.df,
+                aes_string(x=pcx,y=pcy)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type),
+             size=2.5) +
+  geom_point(data=reference.df,
+             shape=21,aes(fill=plot.ID1,alpha=sample.type),
+             size=2.5) +
+  scale_alpha_discrete(range=c(0.95,0.5),name="Sample Type",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  scale_fill_manual(values=c(cvec[6],cvec[8],cvec[7],
+                    cvec[5],cvec2[50]),name="Source",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  xlab(label=pcx%&%" (" %&% filter(pve.df1,PC==pcx)$PVE %&% "%)") +
+  ylab(label=pcy%&%" (" %&% filter(pve.df1,PC==pcy)$PVE %&% "%)") +
+  theme_classic() 
+  
+  legend.obj <- get_legend(pc.plt)
+  pc.plt <- pc.plt + theme(legend.position="none")
+  return(list(pc.plt,legend.obj))
+}
+
+pca_plot_set_v3 <- function(pcx,pcy){
+  hist.x.plt <- pc_density_horizontal(pcx,pc.df1)
+  hist.y.plt <- pc_density_vertical(pcy,pc.df1)
+  pc.list <- pca_plot_v3(pcx,pcy)
+  pc.plt <- pc.list[[1]]
+  # grid Extra plot 
+  empty <- ggplot()+geom_point(aes(1,1), colour="white")+
+            theme(axis.ticks=element_blank(), 
+              panel.background=element_blank(), 
+              axis.text.x=element_blank(),
+              axis.text.y=element_blank(),   
+              axis.title.x=element_blank(),
+              axis.title.y=element_blank())
+ plt.set <- grid.arrange(hist.x.plt, empty, pc.plt, hist.y.plt,
+              ncol=2, nrow=2,widths=c(7, 0.3), heights=c(0.6, 7))
+  complete.plt <- plot_grid(plt.set,pc.list[[2]],
+                            rel_widths=c(1, 0.2))
+
+}
+```
+
+Generate PC plots 
+```{r}
+plt3a <- pca_plot_set_v3("PC1","PC2")
+plt3b <- pca_plot_set_v3("PC1","PC3")
+plt3c <- pca_plot_set_v3("PC1","PC4")
+plt3d <- pca_plot_set_v3("PC2","PC3")
+plt3e <- pca_plot_set_v3("PC2","PC4")
+plt3f <- pca_plot_set_v3("PC3","PC4")
+```
+
+Save PC plots 
+```{r}
+ggsave(plot=plt3a,filename=file.dir %&% "plots/pca_model1_pc1vs2_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3a,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs2_five-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt3b,filename=file.dir %&% "plots/pca_model1_pc1vs3_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3b,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs3_five-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt3c,filename=file.dir %&% "plots/pca_model1_pc1vs4_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3c,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs4_five-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt3d,filename=file.dir %&% "plots/pca_model1_pc2vs3_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3d,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs3_five-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt3e,filename=file.dir %&% "plots/pca_model1_pc2vs4_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3e,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs4_five-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt3f,filename=file.dir %&% "plots/pca_model1_pc3vs4_five-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt3f,filename=file.dir %&% 
+ "plots/pca_model1_pc3vs4_five-mais-regions.svg",
+       height=5,width=9)
+```
+
+
+### Version 4 
+MAIS (five regions) + YRI + IBS 
+
+PCA functions
+```{r}
+
+pca_plot_v4 <- function(pcx,pcy){
+  mcps.df <- filter(pc.df3,population=="MCPS")
+  mais.sub.df <- filter(pc.df3,grepl(pattern="MAIS",x=plot.ID1))
+  yri.ibs.df <- filter(pc.df3,plot.ID2 %in% c("KG_AFR_YRI","KG_EUR_IBS"))
+  reference.df <- rbind(mais.sub.df,yri.ibs.df)
+  pc.plt <- ggplot(data=mcps.df,
+                aes_string(x=pcx,y=pcy)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type),
+             size=2.5) +
+  geom_point(data=reference.df,
+             shape=21,aes(fill=plot.ID1,alpha=sample.type),
+             size=2.5) +
+  scale_alpha_discrete(range=c(0.95,0.5),name="Sample Type",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  scale_fill_manual(values=c(col.vir[20],col.vir[10],
+            cvec[6],cvec[8],cvec[7],cvec[5],cvec2[50]),name="Source",
+    guide = guide_legend(override.aes = list(size = 3))) + 
+  xlab(label=pcx%&%" (" %&% filter(pve.df1,PC==pcx)$PVE %&% "%)") +
+  ylab(label=pcy%&%" (" %&% filter(pve.df1,PC==pcy)$PVE %&% "%)") +
+  theme_classic() 
+  
+  legend.obj <- get_legend(pc.plt)
+  pc.plt <- pc.plt + theme(legend.position="none")
+  return(list(pc.plt,legend.obj))
+}
+
+pca_plot_set_v4 <- function(pcx,pcy){
+  hist.x.plt <- pc_density_horizontal(pcx,pc.df1)
+  hist.y.plt <- pc_density_vertical(pcy,pc.df1)
+  pc.list <- pca_plot_v4(pcx,pcy)
+  pc.plt <- pc.list[[1]]
+  # grid Extra plot 
+  empty <- ggplot()+geom_point(aes(1,1), colour="white")+
+            theme(axis.ticks=element_blank(), 
+              panel.background=element_blank(), 
+              axis.text.x=element_blank(),
+              axis.text.y=element_blank(),   
+              axis.title.x=element_blank(),
+              axis.title.y=element_blank())
+ plt.set <- grid.arrange(hist.x.plt, empty, pc.plt, hist.y.plt,
+              ncol=2, nrow=2,widths=c(7, 0.3), heights=c(0.6, 7))
+  complete.plt <- plot_grid(plt.set,pc.list[[2]],
+                            rel_widths=c(1, 0.2))
+
+}
+```
+
+Generate PC plots 
+```{r}
+plt4a <- pca_plot_set_v4("PC1","PC2")
+plt4b <- pca_plot_set_v4("PC1","PC3")
+plt4c <- pca_plot_set_v4("PC1","PC4")
+plt4d <- pca_plot_set_v4("PC2","PC3")
+plt4e <- pca_plot_set_v4("PC2","PC4")
+plt4f <- pca_plot_set_v4("PC3","PC4")
+```
+
+Save PC plots 
+```{r}
+ggsave(plot=plt4a,filename=file.dir %&% "plots/pca_model1_pc1vs2_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4a,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs2_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt4b,filename=file.dir %&% "plots/pca_model1_pc1vs3_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4b,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs3_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt4c,filename=file.dir %&% "plots/pca_model1_pc1vs4_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4c,filename=file.dir %&% 
+ "plots/pca_model1_pc1vs4_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt4d,filename=file.dir %&% "plots/pca_model1_pc2vs3_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4d,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs3_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt4e,filename=file.dir %&% "plots/pca_model1_pc2vs4_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4e,filename=file.dir %&% 
+ "plots/pca_model1_pc2vs4_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+
+ggsave(plot=plt4f,filename=file.dir %&% "plots/pca_model1_pc3vs4_seven-yri-ibs-mais-regions.png",
+       height=5,width=9)
+ggsave(plot=plt4f,filename=file.dir %&% 
+ "plots/pca_model1_pc3vs4_seven-yri-ibs-mais-regions.svg",
+       height=5,width=9)
+```
