@@ -1,0 +1,723 @@
+---
+title: '04.1'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+base.dir <- serv.dir %&% "popgen/"
+work.dir <- serv.dir %&%
+  "popgen/02.1_terastructure/afr_eas_eur_mais_amr-select_mcps1k/"
+pop.file <- serv.dir%&% "shared/reference_datasets/" %&%
+  "mais_information/reference-population-labels.txt"
+pop.df <- fread(pop.file)
+tera.dir.pre1 <- "n3964-k"
+tera.dir.pre2 <-"-l199247-select_k_"
+tera.dir.suf <- "_rep"
+```
+
+```{r}
+local.dir <- ""
+```
+
+
+```{r}
+mais.ref.df <- fread(serv.dir%&% "shared/reference_datasets/" %&%
+        "mais_information/mais-population-info_NJtree-regions.txt")
+```
+
+
+```{r}
+samp.df <- fread(work.dir %&% "input_files/subset-samples.fam",
+                 header=F)
+ref.df <- c()
+pb <- txtProgressBar(min=0,max=dim(samp.df)[1],style=3)
+for (i in 1:dim(samp.df)[1]){
+  setTxtProgressBar(pb,i)
+  samp <- samp.df$V2[i]
+  sub.df <- filter(pop.df,sample==samp)
+  if (dim(sub.df)[1]==0){
+    sub.df <- data.table("sample"=samp,"population"="MCPS",
+                         "region"="AMERICA",stringsAsFactors=F)
+  }
+  ref.df <- rbind(ref.df,sub.df)
+}
+```
+
+```{r}
+saveRDS(object=ref.df,file=work.dir%&%"output_files/"%&%
+          "ref.df.RDS")
+ref.df <- readRDS(file=work.dir%&%"output_files/"%&%
+          "ref.df.RDS")
+```
+
+
+Lookup MPCS district-specific samples 
+```{r}
+mcps.ref.df <- fread(serv.dir%&%"projects/mcps/data/phenotypes/" %&%
+        "BASELINE.csv",header=T) %>% 
+  dplyr::select(.,one_of("REGISTRO","COYOACAN","IZTAPALAPA"))
+mcps.ref.df$district <- purrr::map(mcps.ref.df$COYOACAN,function(s){
+  ifelse(s==1,"Coyoacan","Iztapalapa")
+}) %>% as.character(.) # about a 4:6 ratio for plotting 
+rgn.link.df <- fread(serv.dir%&%"projects/mcps/data/phenotypes/" %&%
+                       "RGN_LINK.csv",header=T)
+mcps.ref.df <- dplyr::inner_join(mcps.ref.df,rgn.link.df,
+                                 by="REGISTRO")
+mcps.sub.df <- filter(ref.df,population=="MCPS")
+pb <- txtProgressBar(min=0,max=dim(mcps.sub.df)[1],style=3)
+mcps.sub.df$district <- purrr::map(1:dim(mcps.sub.df)[1],function(i){
+  setTxtProgressBar(pb,i)
+  s <- (mcps.sub.df$sample[i] %>% strsplit(.,split="_"))[[1]][2]
+  filter(mcps.ref.df,PATID==s)$district
+}) %>% as.character(.)
+rm(mcps.ref.df)
+```
+
+```{r}
+saveRDS(object=mcps.sub.df,file=work.dir%&%"output_files/"%&%
+          "mcps.sub.df.RDS")
+mcps.sub.df <- readRDS(file=work.dir%&%"output_files/"%&%
+          "mcps.sub.df.RDS")
+```
+
+
+
+```{r}
+pop.num <- purrr::map(mais.ref.df$mais.population,
+                      function(s){
+   dim(filter(pop.df,population==s))[1] 
+}) %>% as.integer(.)
+mais.ref.df$pop.num <- pop.num
+mais.ref.df$Region <- factor(mais.ref.df$Region,
+  levels=c("North","Northwest","Central","South",
+           "Southeast"))
+mais.show.vec <- (filter(mais.ref.df,
+  pop.num>=10) %>% arrange(.,Region))$mais.population
+```
+
+African, East Asian, and European n>=10 populations 
+
+```{r}
+afr.sub.df <- filter(pop.df,region=="AFRICA")
+afr.pop.df <- data.frame("Population"=unique(afr.sub.df$population))
+afr.pop.df$pop.num <- purrr::map(unique(afr.sub.df$population),function(s){
+  dim(filter(afr.sub.df,population==s))[1]
+}) %>% as.integer(.)
+afr.show.vec <- (filter(afr.pop.df,
+  pop.num>=30))$Population
+eas.sub.df <- filter(pop.df,region=="EAST_ASIA")
+eas.pop.df <- data.frame("Population"=unique(eas.sub.df$population))
+eas.pop.df$pop.num <- purrr::map(unique(eas.sub.df$population),function(s){
+  dim(filter(eas.sub.df,population==s))[1]
+}) %>% as.integer(.)
+eas.show.vec <- (filter(eas.pop.df,
+  pop.num>=20))$Population
+eur.sub.df <- filter(pop.df,region=="EUROPE")
+eur.pop.df <- data.frame("Population"=unique(eur.sub.df$population))
+eur.pop.df$pop.num <- purrr::map(unique(eur.sub.df$population),function(s){
+  dim(filter(eur.sub.df,population==s))[1]
+}) %>% as.integer(.)
+eur.show.vec <- (filter(eur.pop.df,
+  pop.num>=30))$Population
+```
+
+
+## Functions
+
+```{r}
+get_top_groups <- function(mean.df,thresh=0.95){
+  sort.df <- mean.df %>% sort(.,decreasing = TRUE)
+  grp.names <- names(sort.df)
+  grp.vec <- as.numeric(sort.df)
+  cumsum = 0 
+  keep.vec <- c()
+  for (i in 1:length(grp.vec)){
+    val <- grp.vec[i]
+    if (cumsum<=thresh){
+      keep.vec <- append(keep.vec,grp.names[i])
+      cumsum <- cumsum + val 
+    }
+  }
+  return(list(keep.vec,cumsum))
+}
+
+evaluate_thetas <- function(k,rep=1,thresh=0.95){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%rep%&%"/theta.txt"
+  theta.df <- fread(theta.file,header=F)[,1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df,theta.df)  
+  # Find group averages by region in African, Europe, and Asia 
+  afr.df <- filter(theta.df,region=="AFRICA")
+  afr.sub.df <- dplyr::select(afr.df,contains("G"))
+  afr.mean.df <- dplyr::summarise(afr.sub.df,
+                        across(G1:("G"%&%k),mean))
+  eas.df <- filter(theta.df,region=="EAST_ASIA")
+  eas.sub.df <- dplyr::select(eas.df,contains("G"))
+  eas.mean.df <- dplyr::summarise(eas.sub.df,
+                        across(G1:("G"%&%k),mean))
+  eur.df <- filter(theta.df,region=="EUROPE")
+  eur.sub.df <- dplyr::select(eur.df,contains("G"))
+  eur.mean.df <- dplyr::summarise(eur.sub.df,
+                        across(G1:("G"%&%k),mean))
+  afr.list <- get_top_groups(afr.mean.df,thresh)
+  eas.list <- get_top_groups(eas.mean.df,thresh)
+  eur.list <- get_top_groups(eur.mean.df,thresh)
+  retain.vec <- c(afr.list[[1]],eas.list[[1]],eur.list[[1]])
+  remain.vec <- ("G"%&%1:k)[!(("G"%&%1:k) %in% retain.vec)]
+  afr.score <- dplyr::select(theta.df,one_of(afr.list[[1]])) %>% 
+    rowSums(.)
+  eas.score <- dplyr::select(theta.df,one_of(eas.list[[1]])) %>% 
+    rowSums(.)
+  eur.score <- dplyr::select(theta.df,one_of(eur.list[[1]])) %>% 
+    rowSums(.)
+  amr.score <- dplyr::select(theta.df,one_of(remain.vec)) %>% 
+    rowSums(.)
+  theta.df$afr.score <- afr.score
+  theta.df$eas.score <- eas.score
+  theta.df$eur.score <- eur.score
+  theta.df$amr.score <- amr.score
+  write.table(x=theta.df,file=work.dir%&%"output_files/"%&%
+                "theta-k"%&%k%&%".txt",row.names=F,
+              sep="\t",quote=F,col.names=T)
+  # Order individuals by European score 
+  ###samp.order <- arrange(theta.df,desc(eur.score))$sample
+  # Order individuals by region, population, and ancestry scores 
+  afr.order <- (filter(theta.df,region=="AFRICA") %>% 
+    arrange(.,population,desc(afr.score)))$sample
+  eas.order <- (filter(theta.df,region=="EAST_ASIA") %>% 
+    arrange(.,population,desc(eas.score)))$sample 
+  eur.order <- (filter(theta.df,region=="EUROPE") %>% 
+    arrange(.,population,desc(eur.score)))$sample 
+  amr.order.ref <- (filter(theta.df,region=="AMERICA",
+                           population!="MCPS") %>% 
+    arrange(.,population,desc(eur.score),desc(afr.score)))$sample
+  amr.order.mcps <- (filter(theta.df,region=="AMERICA",
+                           population=="MCPS") %>% 
+    arrange(.,population,desc(eur.score),
+            desc(afr.score)))$sample
+  amr.order <- c(amr.order.ref,amr.order.mcps)
+  samp.order <- c(afr.order,eas.order,
+                          eur.order,amr.order)
+
+  afr.order <- (filter(theta.df,region=="AFRICA") %>% 
+    arrange(.,desc(afr.score)))$sample
+  eas.order <- (filter(theta.df,region=="EAST_ASIA") %>% 
+    arrange(.,desc(eas.score)))$sample 
+  eur.order <- (filter(theta.df,region=="EUROPE") %>% 
+    arrange(.,desc(eur.score)))$sample 
+  amr.order <- (filter(theta.df,region=="AMERICA") %>% 
+    arrange(.,desc(amr.score)))$sample 
+  samp.order.revised <- c(afr.order,eas.order,
+                          eur.order,amr.order)
+  evaluate.thetas.list <- list(afr.list[[1]],eas.list[[1]],
+                               eur.list[[1]],remain.vec,
+                               samp.order,samp.order.revised)
+  saveRDS(object = evaluate.thetas.list,
+      file=work.dir%&%"output_files/evaluate.thetas.list"%&%
+        "."%&%k%&%".thresh-"%&%thresh%&%".RDS")
+  return(evaluate.thetas.list)
+}
+```
+
+
+```{r}
+create_plot_df <- function(k,rep=1){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%rep%&%"/theta.txt"
+  theta.df <- fread(theta.file,header=F)[,1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df,theta.df)
+  plot.df <- c()
+  pb <- txtProgressBar(min=0,max=dim(theta.df)[1],style=3)
+  for (i in 1:dim(theta.df)[1]){
+    setTxtProgressBar(pb,i)
+    row.df <- theta.df[i,]
+    prop.vec <- row.df[,(dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      as.numeric(.)
+    grp.names <- row.df[,(dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      names(.)
+    build.df <- data.frame("IID"=row.df$sample,
+                           "Population"=row.df$population,
+                           "Region"=row.df$region,
+                           "Proportion"=prop.vec,"K"=grp.names,
+                           stringsAsFactors = F)
+    plot.df <- rbind(plot.df,build.df)
+  }
+  return(plot.df)
+}
+```
+
+```{r}
+library("RColorBrewer")
+library("cowplot")
+library("gridExtra")
+col.func <- colorRampPalette(brewer.pal(11,
+                             name="Spectral"))
+```
+
+```{r}
+
+subgroup_plot <- function(k.sub.df,col.vec,hide.text=TRUE){
+  vline.df <- c()
+  count<-0
+##  for (pop in levels(factor(k.sub.df$Population))){
+  for (pop in levels(factor(k.sub.df$Population))){
+    p.df <- filter(k.sub.df,Population==pop)
+    reg <- unique(p.df$Region)
+    ninds <- length(unique(p.df$IID))
+    count<- count + ninds
+    build.df <- data.frame("Region"=reg,"Population"=pop,
+      "num.inds"=ninds,"index"=count,
+      stringsAsFactors = F)
+    vline.df <- rbind(vline.df,build.df)
+  }
+  pop.pos <- purrr::map(1:dim(vline.df)[1],function(i){
+    if (i==1){
+      pos <- round(0+(vline.df[i,]$index)/2,0)
+    } else{
+      pos <- round(((vline.df[i-1,]$index)+(vline.df[i,]$index))/2,0)
+    }
+  }) %>% as.integer(.)  
+  vline.df$pop.pos <- pop.pos
+  
+  plt<- ggplot(data=k.sub.df,
+                    aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",aes(fill=K,col=K)) +  
+    scale_fill_manual(values=col.vec,name="Group") + 
+    scale_color_manual(values=col.vec,name="Group") + 
+    scale_y_continuous(breaks=seq(0,1,0.2)) +
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          legend.position ="none",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=6)) + 
+    ##ggtitle("K="%&%num.k) + 
+    geom_vline(xintercept = vline.df$index,size=0.25,color="white") + 
+    coord_cartesian(expand = F)# + 
+  
+  if (hide.text==TRUE){
+    plt <- plt + theme(axis.text=element_blank(),
+                       axis.title=element_blank(),
+                       axis.ticks=element_blank())
+  }
+  
+  vline.df$y.pos <- 1
+  name.plt <- ggplot(data=vline.df,aes(x=pop.pos,y=y.pos)) + 
+    geom_text(aes(label=Population),angle=90,size=2) + 
+    theme(panel.border=element_blank(),panel.grid=element_blank(),
+          axis.line=element_blank(),
+          panel.background = element_blank(),
+          axis.text=element_blank(),   
+          axis.ticks=element_blank(),
+          axis.title=element_blank(),
+          #plot.margin = unit(c(0,-3.3,0,8), "mm"))
+          plot.margin = unit(c(0,0,0,0), "mm"))
+
+  combined.plot <- plot_grid(plt,name.plt,nrow=2,
+                             rel_heights = c(2.5,1))
+  return(combined.plot)
+}
+
+```
+
+GGplot, ordered by region, population, and ancestry scores 
+```{r}
+ancestry_plot_unfaceted <- function(k.df,rep=1,thresh=0.95,
+                                    amr.col.vec=NULL){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k,rep,thresh)
+  grp.order <- c(group.list[[1]],group.list[[2]],group.list[[3]],
+                 group.list[[4]]) %>% unique(.)
+  k.df$K <- factor(k.df$K,levels=grp.order)
+  afr.num <- length(group.list[[1]])
+  eas.num <- length(group.list[[2]])
+  eur.num <- length(group.list[[3]])
+  amr.num <- length(group.list[[4]])
+  
+  afr.colors <- rev(colorRampPalette(
+    brewer.pal(9,name="YlOrRd"))(90)[20:30])
+  afr.step.size <- round(length(afr.colors)/afr.num,0)
+  afr.seq <- seq(1,length(afr.colors),afr.step.size)[1:afr.num]
+  afr.colors <- afr.colors[afr.seq]
+  
+  eas.colors <- rev(colorRampPalette(
+    brewer.pal(9,name="Reds"))(90)[60:70])
+  eas.step.size <- round(length(eas.colors)/eas.num,0)
+  eas.seq <- seq(1,length(eas.colors),eas.step.size)[1:eas.num]
+  eas.colors <- eas.colors[eas.seq]
+  
+  eur.colors <- (colorRampPalette(
+    brewer.pal(9,name="Blues"))(90)[30:70]) %>% rev(.)
+  eur.step.size <- round(length(eur.colors)/eur.num,0)
+  eur.seq <- seq(1,length(eur.colors),eur.step.size)[1:eur.num]
+  eur.colors <- eur.colors[eur.seq]
+
+  if (is.null(amr.col.vec)){
+    amr.pal <- brewer.pal(11,name="PiYG")
+    amr.colors <- (colorRampPalette(amr.pal)(100)) %>% rev(.)
+    amr.step.size <- round(length(amr.colors)/amr.num,0)
+    amr.seq <- seq(1,length(amr.colors),amr.step.size)[1:amr.num]
+    if (is.na(amr.seq[length(amr.seq)])){
+      amr.seq[length(amr.seq)] <- 100
+    }
+    amr.colors <- amr.colors[amr.seq]    
+  } else{
+    amr.colors <- amr.col.vec
+  }
+
+  
+  # Need to add a hack for the case where Asian and African groups   #are the same
+  if (all(group.list[[2]]==group.list[[1]])){
+    cvec <- c(afr.colors,eur.colors,amr.colors)
+  } else{
+    cvec <- c(afr.colors,eas.colors,eur.colors,amr.colors)
+  }
+
+  samp.order <- group.list[[5]] #group.list[[6]]
+  k.df$IID <- factor(k.df$IID,levels=samp.order)
+  
+  
+  #Create Plots
+  # Africa plot 
+  k.sub.df <- filter(k.df,Region=="AFRICA",
+                           Population%in%afr.show.vec)
+  afr.plt <- subgroup_plot(k.sub.df,cvec,hide.text=FALSE)
+  
+  # European Plot 
+  k.sub.df <- filter(k.df,Region=="EUROPE",Population%in%eur.show.vec)
+  eur.plt <- subgroup_plot(k.sub.df,cvec)
+  
+  # East Asia Plot 
+  ###eas.vec <- c("CHB")
+  k.sub.df <- filter(k.df,Region=="EAST_ASIA",Population%in%eas.show.vec)
+  eas.plt <- subgroup_plot(k.sub.df,cvec)
+  
+  # America Plot / MAIS
+  k.sub.df <- filter(k.df,Region=="AMERICA",Population %in% 
+                       mais.show.vec)
+  k.sub.df$Population <- factor(k.sub.df$Population,levels=mais.show.vec)
+  samp.order.mais <- arrange(k.sub.df,Population)$IID %>% unique(.)
+  k.sub.df$IID <- factor(k.sub.df$IID,levels=samp.order.mais)
+  mais.plt <- subgroup_plot(k.sub.df,cvec)
+  
+  ## MXL Admixed Plot 
+  k.sub.df <- filter(k.df,Region=="AMERICA",Population=="MXL")
+  mxl.plt <- subgroup_plot(k.sub.df,cvec,
+                             hide.text=TRUE)
+
+  ## MCPS: all plot 
+  k.sub.df <- filter(k.df,Region=="AMERICA",
+                     Population=="MCPS",IID %in%
+      filter(mcps.sub.df)$sample)
+  mcps.plt <- subgroup_plot(k.sub.df,cvec,
+                             hide.text=FALSE)
+  ## MCPS: Coyoacan Admixed Plot 
+  k.sub.df <- filter(k.df,Region=="AMERICA",
+                     Population=="MCPS",IID %in%
+      filter(mcps.sub.df,district=="Coyoacan")$sample)
+  mcps.coy.plt <- subgroup_plot(k.sub.df,cvec,
+                             hide.text=FALSE)
+
+  ## MCPS: Itztapalapa Admixed Plot 
+  k.sub.df <- filter(k.df,Region=="AMERICA",
+                     Population=="MCPS",IID %in%
+      filter(mcps.sub.df,district=="Iztapalapa")$sample)
+  mcps.izt.plt <- subgroup_plot(k.sub.df,cvec,
+                             hide.text=TRUE)
+
+  combined.plt.top <- plot_grid(afr.plt,eas.plt,
+            eur.plt,mais.plt,mxl.plt,
+            nrow=1,rel_widths=c(5,3,3,15,3))
+  combined.plt.bottom <- plot_grid(mcps.coy.plt,
+                                   mcps.izt.plt,
+            nrow=1,rel_widths=c(5,6))
+  combined.plt.bottom <- plot_grid(mcps.plt,
+            nrow=1)
+  combined.plt.full <- plot_grid(combined.plt.top,                        combined.plt.bottom,
+            nrow=2)
+  return(list(combined.plt.full,afr.colors,eas.colors,eur.colors,
+              group.list))
+}
+```
+
+
+```{r}
+k4.r1.df <- create_plot_df(4,rep=1)
+###k4.r2.df <- create_plot_df(4,rep=2)
+###k4.r3.df <- create_plot_df(4,rep=3)
+k4.r1.list <- ancestry_plot_unfaceted(k4.r1.df,rep=1)
+k4.r1.plt <- k4.r1.list[[1]]
+###k4.r2.plt <- ancestry_plot_unfaceted(k4.r2.df,rep=2)
+###k4.r3.plt <- ancestry_plot_unfaceted(k4.r3.df,rep=3)
+
+###k17.df<- create_plot_df(17)
+k18.df<- create_plot_df(18)
+###k17.plt <- ancestry_plot_unfaceted(k17.df)
+k18.list <- ancestry_plot_unfaceted(k18.df)
+k18.plt <- k18.list[[1]]
+```
+
+
+Saving K=4 output 
+```{r}
+ggsave(x=k4.r1.plt,filename=work.dir%&%
+"output_files/plots/k4.plot.png",
+height=6,width=16)
+svg(file=local.dir%&%"output_files/plots/k4.plot.svg",
+    height =6,width = 16)
+k4.r1.plt
+dev.off()
+```
+
+
+K=18 plot 
+```{r}
+k=18
+rep=1
+orange.vec <- brewer.pal(9,name="Oranges")
+green.vec <- brewer.pal(9,name="YlGn")
+purple.vec <- brewer.pal(9,name="Purples")
+pink.vec <- brewer.pal(11,name="PiYG")
+blue.vec <- brewer.pal(9,name="Blues")
+theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+  k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%rep%&%"/theta.txt"
+theta.df <- fread(theta.file,header=F)[,1:k]
+names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+theta.df <- cbind(ref.df,theta.df)
+group.list <- evaluate_thetas(k,rep,thresh=0.95)
+grp.order <- c(group.list[[1]],group.list[[2]],group.list[[3]],
+                 group.list[[4]]) %>% unique(.)
+group.list[[4]]
+
+
+##Lookup up groups highest in Northern Mais
+n.df <- filter(theta.df,population%in%filter(mais.ref.df,
+                  Region=="North")$mais.population)
+n.sub.df <- dplyr::select(n.df,contains("G"))
+n.mean.df <- dplyr::summarise(n.df,
+                      across(G1:("G"%&%k),mean)) 
+
+##Lookup up groups highest in Northwest Mais
+nw.df <- filter(theta.df,population%in%filter(mais.ref.df,
+                  Region=="Northwest")$mais.population)
+nw.sub.df <- dplyr::select(nw.df,contains("G"))
+nw.mean.df <- dplyr::summarise(nw.df,
+                      across(G1:("G"%&%k),mean)) 
+
+##Lookup up groups highest in Central Mais
+c.df <- filter(theta.df,population%in%filter(mais.ref.df,
+                  Region=="Central")$mais.population)
+c.sub.df <- dplyr::select(c.df,contains("G"))
+c.mean.df <- dplyr::summarise(c.df,
+                      across(G1:("G"%&%k),mean)) 
+
+##Lookup up groups highest in Southern Mais
+s.df <- filter(theta.df,population%in%filter(mais.ref.df,
+                  Region=="South")$mais.population)
+s.sub.df <- dplyr::select(s.df,contains("G"))
+s.mean.df <- dplyr::summarise(s.df,
+                      across(G1:("G"%&%k),mean))
+
+##Lookup up groups highest in Southeaster Mais
+se.df <- filter(theta.df,population%in%filter(mais.ref.df,
+                  Region=="Southeast")$mais.population)
+se.sub.df <- dplyr::select(se.df,contains("G"))
+se.mean.df <- dplyr::summarise(se.df,
+                      across(G1:("G"%&%k),mean))
+
+(n.mean.df %>% sort(.,decreasing = TRUE))[c(1:3)]#G1
+(nw.mean.df %>% sort(.,decreasing = TRUE))[c(1:3)]#G16 
+(c.mean.df %>% sort(.,decreasing = TRUE))[c(1:3)]#G7
+(s.mean.df %>% sort(.,decreasing = TRUE))[c(1:3)]#G10
+(se.mean.df %>% sort(.,decreasing = TRUE))[c(1:3)]#G11
+#"G1""G3""G4""G5""G7""G8""G10""G11""G12""G13""G16""G18"
+fill.vec <- colorRampPalette(green.vec)(11)
+manual.vec <- c(orange.vec[9],fill.vec[1],fill.vec[2],fill.vec[3],
+                "#FDBF6F",fill.vec[4],"#FB9A99","#B3367AFF",
+                fill.vec[5],fill.vec[5],"#FF7F00",fill.vec[6])
+
+k18.plt.manual <- ancestry_plot_unfaceted(k18.df,thresh=0.95,
+                    amr.col.vec=manual.vec)
+```
+
+Saving K=18 output 
+```{r}
+ggsave(x=k18.plt.manual,filename=work.dir%&%
+"output_files/plots/k18.plot.png",
+height=6,width=16)
+svg(file=local.dir%&%"output_files/plots/k18.plot.svg",
+    height =6,width = 16)
+k18.plt.manual
+dev.off()
+```
+AMR-MAIS-North  "#E31A1C"
+AMR-MAIS-Northwest  "#FF7F00"
+AMR-MAIS-Central  "#FDBF6F"
+AMR-MAIS-South  "#FB9A99"
+AMR-MAIS-Southeast  "#B3367AFF"
+
+## Faceted plots 
+
+Functions
+```{r}
+region_plot <- function(sub.df,col.vec,hide.legend=FALSE){
+  plt <- ggplot(data=sub.df,aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",
+             aes(fill=K,col=K)) + 
+  scale_y_continuous(breaks=seq(0,1,0.1)) + 
+  scale_fill_manual(values=col.vec) + 
+  scale_color_manual(values=col.vec) + 
+    facet_wrap(~Region,scales="free_x",
+               strip.position="bottom",
+               nrow=1) + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=6))
+  if (hide.legend==TRUE){
+    plt <- plt + theme(legend.position ="none")
+  }
+  return(plt)
+}
+
+pop_plot <- function(sub.df,col.vec,hide.text=TRUE,hide.legend=FALSE){
+  plt <- ggplot(data=sub.df,aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",
+             aes(fill=K,col=K)) + 
+  scale_y_continuous(breaks=seq(0,1,0.1)) + 
+  scale_fill_manual(values=col.vec) + 
+  scale_color_manual(values=col.vec) + 
+    facet_wrap(~Population,scales="free_x",
+               strip.position="bottom",
+               nrow=1) + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=6))
+  if (hide.text==TRUE){
+    plt <- plt + theme(axis.text=element_blank(),
+                       axis.title=element_blank(),
+                       axis.ticks=element_blank())
+  }
+  if (hide.legend==TRUE){
+    plt <- plt + theme(legend.position ="none")
+  }
+  return(plt)
+}
+```
+
+### K=4
+```{r}
+vir.vec <- viridis::viridis(20)
+cvec <- c(vir.vec[20],"red",vir.vec[8],vir.vec[15])
+# Note: Refactoring to enable clear comparision with RFMix 3-way plot
+k4.r1.df$K <- factor(k4.r1.df$K,levels=c("G1","G4","G3","G2"))
+# Note: G3 corresponds to Europe in these results
+lev.vec <- (filter(k4.r1.df,K=="G3") %>% 
+  arrange(desc(Proportion)))$IID %>% unique(.)
+k4.r1.df$IID <- factor(k4.r1.df$IID,levels=lev.vec)
+
+k4.plt.fac.ref <- region_plot(filter(k4.r1.df,Population!="MCPS"),
+                     col.vec=cvec,hide.legend=T)
+k4.plt.fac.mcps <- pop_plot(filter(k4.r1.df,Population=="MCPS"),
+      col.vec=cvec,hide.text=F,hide.legend = F)
+k4.plt.fac.full <- cowplot::plot_grid(k4.plt.fac.ref,k4.plt.fac.mcps,
+      nrow=1,rel_widths = c(1,5))
+k4.plt.fac.mcps <- cowplot::plot_grid(k4.plt.fac.mcps,nrow=1)
+```
+
+Save plots
+```{r}
+ggsave(plot=k4.plt.fac.mcps,filename=work.dir%&%
+         "output_files/plots/terastructure-plot-K4.png",
+       height=2.5,width =12)
+ggsave(plot=k4.plt.fac.full,filename=work.dir%&%
+  "output_files/plots/terastructure-plot-K4-with-references.png",
+       height=2.5,width =16)
+```
+
+```{r}
+local.dir <- "" %&%
+  "02.1_terastructure/" %&% 
+  "afr_eas_eur_mais_amr-select_mcps1k/"
+svg(file=local.dir%&%
+    "output_files/plots/terastructure-plot-K4-with-references.svg",
+    height =2.5,width = 16)
+k4.plt.fac.full
+dev.off()
+```
+
+### K=18
+
+```{r}
+lev.vec <- c(k18.list[[5]][[1]],k18.list[[5]][[2]],
+             k18.list[[5]][[3]],k18.list[[5]][[4]])
+color.vec <- c(k18.list[[2]],k18.list[[3]],k18.list[[4]],
+               manual.vec)
+k18.df$K <- factor(k18.df$K,levels=lev.vec)
+samp.order <- rev(k18.list[[5]][[6]])
+mais.pop.order <- arrange(mais.ref.df,Region)$mais.population
+mais.order.df <- filter(ref.df,population%in%mais.pop.order)
+mais.order.df$population <- factor(mais.order.df$population,
+                                   levels=mais.pop.order)
+mais.order <- arrange(mais.order.df,population)$sample
+samp.order <- samp.order[!(samp.order%in%mais.order)]
+samp.order <- c(samp.order,mais.order)
+
+k18.df$IID <- factor(k18.df$IID,levels=samp.order)
+  
+k18.plt.fac.ref <- region_plot(filter(k18.df,Population!="MCPS"),
+                     col.vec=color.vec,hide.legend=T)
+k18.plt.fac.mcps <- pop_plot(filter(k18.df,Population=="MCPS"),
+      col.vec=color.vec,hide.text=F,hide.legend = F) + 
+  theme(legend.key.size=unit(0.7,"lines"))
+k18.plt.fac.full <- cowplot::plot_grid(k18.plt.fac.ref,k18.plt.fac.mcps,
+      nrow=1,rel_widths = c(1,5))
+k18.plt.fac.mcps <- cowplot::plot_grid(k18.plt.fac.mcps,nrow=1)
+```
+
+```{r}
+ggsave(plot=k18.plt.fac.mcps,filename=work.dir%&%
+         "output_files/plots/terastructure-plot-k18.png",
+       height=3,width =12)
+ggsave(plot=k18.plt.fac.full,filename=work.dir%&%
+  "output_files/plots/terastructure-plot-K18-with-references.png",
+       height=3,width =16)
+```
+
+```{r}
+local.dir <- "popgen/" %&%
+  "02.1_terastructure/" %&% 
+  "afr_eas_eur_mais_amr-select_mcps1k/"
+svg(file=local.dir%&%
+    "output_files/plots/terastructure-plot-K18-with-references.svg",
+    height =3,width = 16)
+k18.plt.fac.full
+dev.off()
+```

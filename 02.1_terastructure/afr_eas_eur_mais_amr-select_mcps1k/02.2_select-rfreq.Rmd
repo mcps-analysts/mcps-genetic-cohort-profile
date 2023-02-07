@@ -1,0 +1,88 @@
+---
+title: '02.2'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+work.dir.serv <- serv.dir %&%
+  "popgen/02.1_terastructure/" %&%
+  "afr_eas_eur_mais_amr-select_mcps1k/"
+tera.dir.pre <- "n3964-k4-l199247-select_rfreq_"
+tera.dir.suf <- "-seed1"
+```
+
+https://github.com/StoreyLab/terastructure/wiki/Advanced-Usage
+
+"By default, terastructure converges when the validation likelihood changes by a factor less 
+than 1e-5 (or if the validation likelihood has decreased at least twice in a row). 
+However, the relative convergence cutoff is not the most relevant tuning parameter for users. 
+Because we are sampling random SNPs, we don't compute this likelihood after every iteration. 
+Instead, we compute it every R iterations, then check for convergence. The value of R is specified by the 
+user using the -rfreq option. The choice of R plays a major role in the performance of terastructure! 
+Too small of an R means that not many SNPs are sampled between convergence checks 
+and thus there is little change in the likelihood, resulting in early termination. 
+Too large of an R means that the algorithm may have converged, but checks for convergence too infrequently to notice.
+
+We suggest setting the -rfreq option to a value somewhere in the range of 5% to 20% of the number of SNPs, 
+and experimenting to determine if the value is appropriate. 
+We can suggest two rules of thumbs for assessing if the value of R is too high or two low. 
+If R is too low, then the most recent few reported validation likelihoods will not have plateaued much. 
+If R is too high, then we expect to see oscillation around the maximum of the validation likelihood."
+
+```{r}
+rfreq.vec <- c("05","10","15","20")
+```
+
+```{r}
+build_validation_df <- function(rfreq.vec){
+  out.df <- c()
+  for (rfreq in rfreq.vec){
+    df <- fread(work.dir.serv %&% "output_files/" %&% tera.dir.pre %&%
+                  rfreq %&% tera.dir.suf %&% "/validation.txt")
+    iter <- 0:(dim(df)[1]-1)
+    build.df <- data.frame("rfreq"=rfreq,"comp.iter"=iter,"iter.num"=df$V1,
+                           "time.elapsed"=df$V2,"validation.likelihood"=df$V3,
+                           "num.sampled.snps"=df$V4,"perplexity"=df$V5,
+                           stringsAsFactors = F)
+    out.df <- rbind(out.df,build.df)
+  }
+  return(out.df)
+}
+```
+
+```{r}
+val.df <- build_validation_df(rfreq.vec)
+```
+
+```{r}
+plt1 <- ggplot(data=filter(val.df,comp.iter!=0),
+              aes(x=comp.iter,y=validation.likelihood)) +
+  geom_line(aes(col=rfreq)) +
+  theme_classic()
+
+plt2 <- ggplot(data=val.df,
+              aes(x=comp.iter,y=time.elapsed)) +
+  geom_line(aes(col=rfreq)) +
+  theme_classic()
+```
+
+```{r}
+library(gridExtra)
+plt <- grid.arrange(plt1,plt2,nrow=2)
+ggsave(plot=plt,filename = work.dir.serv %&% "output_files/select-rfreq.png",
+       height=4,width=6)
+```
+
+After reviewing the validation likelihood convergence trends, values, and time to convergence, 
+it seems that the 20% rfreq number is the best option as it plateaus with little oscillation, 
+obtains the highest validation likelihood, but does take the most time.

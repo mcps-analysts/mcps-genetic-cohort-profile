@@ -1,0 +1,356 @@
+---
+title: '06.2'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+base.dir <- serv.dir %&% "popgen/"
+work.dir <- serv.dir %&% "popgen/02.1_terastructure/mais_amr_afr_eur_mcps10k/"
+pop.file <- serv.dir%&% "shared/reference_datasets/" %&%
+  "mais_information/reference-population-labels.txt"
+tera.dir.pre1 <- "n11989-k"
+tera.dir.pre2 <-"-l199247-select_k_"
+tera.dir.suf <- "_rep"
+```
+
+```{r}
+samp.df <- fread(work.dir %&% "input_files/subset-samples.fam",
+                 header=F)
+pop.df <- fread(pop.file)
+ref.df <- c()
+pb <- txtProgressBar(min=0,max=dim(samp.df)[1],style=3)
+for (i in 1:dim(samp.df)[1]){
+  setTxtProgressBar(pb,i)
+  samp <- samp.df$V2[i]
+  sub.df <- filter(pop.df,sample==samp)
+  if (dim(sub.df)[1]==0){
+    sub.df <- data.table("sample"=samp,"population"="MCPS",
+                         "region"="AMERICA",stringsAsFactors=F)
+  }
+  ref.df <- rbind(ref.df,sub.df)
+}
+```
+
+
+## Functions
+
+```{r}
+
+get_top_groups <- function(mean.df,thresh=0.99){
+  sort.df <- mean.df %>% sort(.,decreasing = TRUE)
+  grp.names <- names(sort.df)
+  grp.vec <- as.numeric(sort.df)
+  cumsum = 0 
+  keep.vec <- c()
+  for (i in 1:length(grp.vec)){
+    val <- grp.vec[i]
+    if (cumsum<=thresh){
+      keep.vec <- append(keep.vec,grp.names[i])
+      cumsum <- cumsum + val 
+    }
+  }
+  return(list(keep.vec,cumsum))
+}
+
+evaluate_thetas <- function(k){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%"1"%&%"/theta.txt"
+  theta.df <- fread(theta.file,header=F)[,1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df,theta.df)  
+  # Find group averages by region 
+  afr.df <- filter(theta.df,region=="AFRICA")
+  afr.sub.df <- dplyr::select(afr.df,contains("G"))
+  afr.mean.df <- dplyr::summarise(afr.sub.df,across(G1:("G"%&%k),
+                                                    mean))
+  eur.df <- filter(theta.df,region=="EUROPE")
+  eur.sub.df <- dplyr::select(eur.df,contains("G"))
+  eur.mean.df <- dplyr::summarise(eur.sub.df,across(G1:("G"%&%k),mean))
+  afr.list <- get_top_groups(afr.mean.df,0.95)
+  eur.list <- get_top_groups(eur.mean.df,0.95)
+  retain.vec <- c(afr.list[[1]],eur.list[[1]])
+  remain.vec <- ("G"%&%1:k)[!(("G"%&%1:k) %in% retain.vec)]
+  # Order individuals by European score 
+  eur.score <- dplyr::select(theta.df,one_of(eur.list[[1]])) %>% 
+    rowSums(.)
+  theta.df$eur.score <- eur.score
+  samp.order <- arrange(theta.df,desc(eur.score))$sample
+  return(list(afr.list[[1]],eur.list[[1]],
+              remain.vec,samp.order))
+}
+```
+
+
+```{r}
+create_plot_df <- function(k){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%"1"%&%"/theta.txt"
+  theta.df <- fread(theta.file,header=F)[,1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df,theta.df)
+  plot.df <- c()
+  pb <- txtProgressBar(min=0,max=dim(theta.df)[1],style=3)
+  for (i in 1:dim(theta.df)[1]){
+    setTxtProgressBar(pb,i)
+    row.df <- theta.df[i,]
+    prop.vec <- row.df[,(dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      as.numeric(.)
+    grp.names <- row.df[,(dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      names(.)
+    build.df <- data.frame("IID"=row.df$sample,
+                           "Poplulation"=row.df$population,
+                           "Region"=row.df$region,
+                           "Proportion"=prop.vec,"K"=grp.names,
+                           stringsAsFactors = F)
+    plot.df <- rbind(plot.df,build.df)
+  }
+  return(plot.df)
+}
+```
+
+```{r}
+library("RColorBrewer")
+col.func <- colorRampPalette(brewer.pal(11,
+                             name="Spectral"))
+```
+
+
+```{r}
+
+ancestry_plot_regions <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k)
+  grp.order <- c(group.list[[1]],group.list[[2]],group.list[[3]])
+  k.df$K <- factor(k.df$K,levels=grp.order)
+  cvec <- col.func(num.k)
+  samp.order <- group.list[[4]]
+
+  k.df$IID <- factor(k.df$IID,levels=samp.order)
+  # Create plot 
+  plt <- ggplot(data=k.df,aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",aes(fill=K,col=K)) +  
+    scale_fill_manual(values=cvec,name="Group") + 
+    scale_color_manual(values=cvec,name="Group") + 
+    facet_wrap(~Region,scales="free_x",
+               strip.position="bottom",
+                nrow=1) + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k)
+  #return(plt)
+}
+```
+
+
+
+```{r}
+k6.df <- create_plot_df(6)
+k6.plt <- ancestry_plot_regions(k6.df)
+##k7.df <- create_plot_df(7)
+##k7.plt <- ancestry_plot_regions(k7.df)
+##k8.df <- create_plot_df(8)
+##k8.plt <- ancestry_plot_regions(k8.df)
+k9.df <- create_plot_df(9)
+k9.plt <- ancestry_plot_regions(k9.df)
+##k10.df <- create_plot_df(10)
+##k10.plt <- ancestry_plot_regions(k10.df)
+k11.df <- create_plot_df(11)
+k11.plt <- ancestry_plot_regions(k11.df)
+##k12.df <- create_plot_df(12)
+##k12.plt <- ancestry_plot_regions(k12.df)
+##k13.df <- create_plot_df(13)
+##k13.plt <- ancestry_plot_regions(k13.df)
+##k14.df <- create_plot_df(14)
+##k14.plt <- ancestry_plot_regions(k14.df)
+##k15.df <- create_plot_df(15)
+##k15.plt <- ancestry_plot_regions(k15.df)
+k16.df <- create_plot_df(16)
+k16.plt <- ancestry_plot_regions(k16.df)
+##k17.df <- create_plot_df(17)
+##k17.plt <- ancestry_plot_regions(k17.df)
+k17.df <- create_plot_df(17)
+k17.plt <- ancestry_plot_regions(k17.df)
+##k19.df <- create_plot_df(19)
+#k19.plt <- ancestry_plot_regions(k19.df)
+##k20.df <- create_plot_df(20)
+##k20.plt <- ancestry_plot_regions(k20.df)
+```
+
+## Save plots
+```{r}
+ggsave(x=k17.plt,filename=work.dir%&%
+  "output_files/plots/k-plot_17.png",
+  height=5,width=12)
+```
+
+
+# AMR-specific plot
+
+```{r}
+ancestry_plot_america <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k)
+  grp.order <- c(group.list[[1]],group.list[[2]],group.list[[3]])
+  k.df$K <- factor(k.df$K,levels=grp.order)
+  cvec <- col.func(num.k)
+  samp.order <- group.list[[4]]
+  # Relevel IID in descending order by European score 
+  k.df$IID <- factor(k.df$IID,levels=samp.order)
+  # Create plot 
+  plt <- ggplot(data=filter(k.df,Region=="AMERICA"),
+                aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",aes(fill=K,col=K)) +  
+    scale_fill_manual(values=cvec,name="Group") + 
+    scale_color_manual(values=cvec,name="Group") + 
+    facet_wrap(~Poplulation,scales="free_x",
+               strip.position="bottom") + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=18)) + 
+    ggtitle("K="%&%num.k)
+  #return(plt)
+}
+```
+
+```{r}
+k17.amr.plt <- ancestry_plot_america(k17.df)
+ggsave(x=k17.amr.plt,filename=work.dir%&%
+  "output_files/plots/k-plot_17_America.png",
+  height=20,width=20)
+```
+
+
+# MAIS-specific plot
+
+```{r}
+mais.info.file<-serv.dir %&% "shared/reference_datasets/" %&%
+  "mais_information/mais-population-info-forR.txt"
+mais.info.df <- fread(mais.info.file,header=T)
+names(mais.info.df)[1] <- "population"
+```
+
+
+```{r}
+ancestry_plot_mais <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  mais.df <- filter(k.df,
+                    Poplulation%in%mais.info.df$population)
+  
+  cvec <- col.func <- colorRampPalette(brewer.pal(11,
+                             name="Spectral"))(18)
+  plt <- ggplot(data=mais.df,
+                aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",aes(fill=K,col=K)) +  
+    scale_fill_manual(values=cvec,name="Group") + 
+    scale_color_manual(values=cvec,name="Group") + 
+    facet_wrap(~Poplulation,scales="free_x",
+               strip.position="bottom") + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=18)) + 
+    ggtitle("K="%&%num.k)
+  #return(plt)
+}
+```
+
+```{r}
+k18.mais.plt <- ancestry_plot_mais(k18.df)
+ggsave(x=k18.mais.plt,filename=work.dir%&%
+  "output_files/plots/k-plot_18_MAIS.png",
+  height=20,width=20)
+```
+
+
+# MAIS-specific plots
+
+```{r}
+ancestry_plot_mais <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  cvec <- col.func(num.k)
+  # Identify Group highest in Europeans
+  sub.df <- filter(k.df,Region=="EUROPE")
+  g.df <- data.frame("Group"=unique(sub.df$K),
+             "Avg"=purrr::map(unique(sub.df$K),function(g){
+               filter(sub.df,K==g)$Proportion %>% mean(.)
+             }) %>% as.numeric(.),stringsAsFactors = F) %>% 
+    arrange(.,desc(Avg))
+  max.g <- g.df$Group[1]
+  # Relevel IID in descending order by max Group above 
+  sub.df2 <- filter(k.df,K==max.g) %>% 
+    arrange(.,desc(Proportion))
+  iid.order <- sub.df2$IID
+  k.df$IID <- factor(k.df$IID,levels=iid.order)
+  mais.df <- filter(k.df,!grepl("HG",IID)) %>% 
+    filter(.,!grepl("NA",IID))
+  # Create plot 
+  plt <- ggplot(data=mais.df,aes(x=IID,y=Proportion)) + 
+    geom_bar(stat="identity",aes(fill=K,col=K)) +  
+    scale_fill_manual(values=cvec,name="Group") + 
+    scale_color_manual(values=cvec,name="Group") + 
+    facet_wrap(~Poplulation,scales="free_x",
+               strip.position="bottom",
+                nrow=8) + 
+    theme(axis.text.x=element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x=element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_rect(fill="white"),
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k)
+}
+```
+
+```{r}
+k6.df.mais <- create_plot_df(6)
+k6.plt.mais <- ancestry_plot_mais(k6.df.mais)
+k9.df.mais <- create_plot_df(9)
+k9.plt.mais <- ancestry_plot_mais(k9.df.mais)
+k11.df.mais <- create_plot_df(11)
+k11.plt.mais <- ancestry_plot_mais(k11.df.mais)
+k16.df.mais <- create_plot_df(16)
+k16.plt.mais <- ancestry_plot_mais(k16.df.mais)
+k18.df.mais <- create_plot_df(18)
+k18.plt.mais <- ancestry_plot_mais(k18.df.mais)
+```
+
+```{r}
+ggsave(x=k16.plt.mais,filename=work.dir%&%
+  "output_files/plots/k-plot_16-mais.png",
+  height=10,width=12)
+ggsave(x=k16.plt,filename=work.dir%&%
+  "output_files/plots/k-plot_16.png",
+  height=5,width=12)
+
+```
