@@ -1,0 +1,90 @@
+---
+title: "03.4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+library("bigsnpr")
+
+serv.dir <- ""
+work.dir <- serv.dir %&% "popgen/01_pca/global/"
+file.dir <- work.dir %&% "bigsnpr_output/"
+plink.dir <- work.dir %&% "merged_mcps/"
+plink.pre <- "merged_mcps-hgdp-1kg"
+bed.file <- plink.dir %&% plink.pre %&% ".bed"
+
+## obj.svd2 <- readRDS(file.dir %&% "svd2_unrelateds_maf01.rds") 
+## Note that 03.3 did not have to be run as no outliers were 
+## detected in 03.2
+obj.svd2 <- readRDS(file.dir %&% "svd_unrelateds_maf01.rds") 
+## deliberately using this file here per above comment
+S <- readRDS(file.dir %&% "knn-dist-stats_unrelateds_maf01.rds")
+```
+
+```{r}
+rel <- fread(file.dir %&% "bigsnpr_relationships.txt")
+obj.bed <- bed(bed.file)
+keep.indices <- readRDS(file.dir %&% "keep.indices.RDS")
+ind.row <- keep.indices #[S < 1.0] # No outlier thresholding is necessary here
+
+subject.vec <- obj.bed$fam$sample.ID[keep.indices]
+```
+
+# Verification
+
+```{r}
+scree.plt <- plot(obj.svd2)
+loadings.plt <- plot(obj.svd2, type = "loadings", 
+                    loadings = 1:20, coeff = 0.4)
+scores.plt <- plot(obj.svd2, type = "scores", scores = 1:20, coeff = 0.4)
+```
+
+
+```{r}
+
+ggsave(plot=scree.plt,filename=file.dir %&%
+         "plots/svd2_unrelateds_maf01_scree.png",
+       width=5,height=3.5)
+ggsave(plot=loadings.plt,filename=file.dir %&%
+         "plots/svd2_unrelateds_maf01_loadings.png",
+       width=20,height=10)
+ggsave(plot=scores.plt,filename=file.dir %&%
+         "plots/svd2_unrelateds_maf01_pc-scores.png",
+       width=10,height=10)
+```
+
+
+# Project remaining individuals
+
+```{r}
+PCs <- matrix(NA, nrow(obj.bed), ncol(obj.svd2$u))
+PCs[ind.row, ] <- predict(obj.svd2)
+
+proj <- bed_projectSelfPCA(obj.svd2, obj.bed,
+                           ind.row = rows_along(obj.bed)[-ind.row],
+                           ncores = nb_cores())
+PCs[-ind.row, ] <- proj$OADP_proj
+saveRDS(proj,file=file.dir%&%"projections_unrelateds_maf01.RDS")
+saveRDS(PCs,file=file.dir%&%"projections-matrix_unrelateds_maf01.RDS")
+```
+
+
+```{r}
+out.df <- as.data.frame(PCs)
+names(out.df) <- "PC" %&% 1:20
+out.df$sample.ID <- obj.bed$fam$sample.ID
+
+out.df <- dplyr::select(out.df,one_of(c("sample.ID","PC"%&%1:20)))
+write.table(x=out.df,file=file.dir %&% "pc_projections_unrelateds_maf01.txt",
+            sep="\t",quote=F,row.names=F)
+```
