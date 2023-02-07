@@ -10,7 +10,7 @@ library("tidyverse")
 library("bigsnpr")
 
 serv.dir <- ""
-work.dir <- serv.dir %&% "popgen/pca/global/"
+work.dir <- serv.dir %&% "popgen/pca/public/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- work.dir %&% "merged_mcps/"
 plink.pre <- "merged_mcps-hgdp-1kg_qcd"

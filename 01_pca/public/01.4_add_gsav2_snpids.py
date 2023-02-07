@@ -9,7 +9,7 @@ python 01.4_script.py
 # libraries
 import sys,os
 
-work_dir = "popgen/01_pca/global/"
+work_dir = "popgen/01_pca/public/"
 
 study_dir =  "projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/qcd2/"
 study_name = "MCPS_Freeze_150.GT_hg38.pVCF.qcd2"

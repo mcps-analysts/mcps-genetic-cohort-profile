@@ -11,7 +11,7 @@ import sys,os
 from shutil import copyfile
 import subprocess as sp
 
-work_dir = "popgen/pca/global/"
+work_dir = "popgen/01_pca/public/"
 plink2 = "/apps/well/plink/2.00a-20170724/plink2"
 
 def sync_snps(study_dir,study_name):

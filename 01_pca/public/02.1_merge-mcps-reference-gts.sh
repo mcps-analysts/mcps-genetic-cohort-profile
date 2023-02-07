@@ -4,7 +4,7 @@ plink=shared/software/plink2/plink2
 plink1=shared/software/plink1/plink
 
 ### Create sub directories
-workdir=popgen/01_pca/global
+workdir=popgen/01_pca/public
 
 datadir1=$workdir/merged
 datadir2=projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/qcd2
