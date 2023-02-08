@@ -4,8 +4,8 @@
 #$ -N MT_IMPUTE5_MCPS_60K_chr1q
 #$ -q short.qc@@short.hga
 #$ -pe shmem 44
-#$ -o ./code/IMPUTE5/60K_analyses/logs/MT_IMPUTE5_60K_1q.out
-#$ -e ./code/IMPUTE5/60K_analyses/logs/MT_IMPUTE5_60K_1q.err
+#$ -o ./pop_structure/code/IMPUTE5/60K_analyses/logs/MT_IMPUTE5_60K_1q.out
+#$ -e ./pop_structure/code/IMPUTE5/60K_analyses/logs/MT_IMPUTE5_60K_1q.err
 
 echo "-----------------------------------------"
 echo "Run on host: "`hostname`
@@ -23,7 +23,7 @@ IMPUTE5_folder=./software/IMPUTE5/impute5_v1.1.4
 map_folder=./pop_structure/input_data
 ref_folder=./data/QC_datasets/60K_files/Phased_Chr_files/Imp5Files
 input_folder=./data/QC_datasets/60K_files/Phased_Chr_files/
-output_folder=./data/IMPUTE5_Output/60K_analyses
+output_folder=./pop_structure/data/IMPUTE5_Output/60K_analyses
 chr=1
 
 	#Running IMPUTE5 to create co-ancestry matrix with 60K participants#

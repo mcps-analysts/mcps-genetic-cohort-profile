@@ -26,7 +26,7 @@ input_folder=./data/QC_datasets/60K_files/Phased_Chr_files/
 output_folder=./pop_structure/data/IMPUTE5_Output/60K_analyses
 chr=3
 
-	#Running IMPUTE5 to create co-ancestry matrix with all 138K participants#
+	#Running IMPUTE5 to create co-ancestry matrix with 60K participants#
 
 $IMPUTE5_folder/impute5_1.1.4_static --h $ref_folder/MT_MCPS_60K_chr$chr.imp5 \
 --m $map_folder/chr$chr.b38.gmap.gz \
