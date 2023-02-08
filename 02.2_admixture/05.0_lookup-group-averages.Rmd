@@ -1,0 +1,95 @@
+---
+title: '05.0'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library(data.table);library(tidyverse)
+serv.dir <- ""
+work.dir <- serv.dir %&% "popgen/02.2_admixture/" %&%
+ "afr_eas_eur_mais_amr-select-mcps1k/output_files/"
+k18.df <- fread(work.dir %&% "theta-k18.txt")
+```
+
+```{r}
+mais.df <- fread(serv.dir%&%"shared/reference_datasets/mais_information/"%&%
+      "mais-population-info_NJtree-regions.txt",header=T)
+mais.sub.df <- dplyr::select(mais.df,one_of("mais.population","Region"))
+names(mais.sub.df)<-c("population","mais.group")
+anc.df <- dplyr::left_join(k18.df,mais.sub.df,by="population")
+```
+
+
+Build summary data frame 
+
+```{r}
+mean.df <- c()
+reg.vec <- c("AMERICA","EUROPE","EAST_ASIA","AFRICA")
+for (reg in reg.vec){
+  sub.df <- filter(anc.df,region==reg) %>% 
+    dplyr::select(.,contains("G")) %>% 
+    dplyr::select(.,!one_of(c("region","mais.group"))) %>% 
+    summarise_each(.,funs=(mean))
+  build.df <- data.frame("Region"=reg,stringsAsFactors = F)
+  build.df <- cbind(build.df,sub.df)
+  mean.df <- rbind(mean.df,build.df)
+}
+reg.vec2 <- c("Central","Southeast","North","South","Northwest")
+for (reg in reg.vec2){
+  sub.df <- filter(anc.df,mais.group==reg) %>% 
+    dplyr::select(.,contains("G")) %>% 
+    dplyr::select(.,!one_of(c("region","mais.group"))) %>% 
+    summarise_each(.,funs=(mean))
+  build.df <- data.frame("Region"=reg,stringsAsFactors = F)
+  build.df <- cbind(build.df,sub.df)
+  mean.df <- rbind(mean.df,build.df)
+}
+```
+
+Build key data frame 
+```{r}
+key.df <- c()
+for (reg in unique(mean.df$Region)){
+  row.df <- filter(mean.df,Region==reg) %>% 
+    dplyr::select(.,!contains("Region")) 
+  row.vec <- row.df %>% as.numeric(.)
+  names(row.vec) <- names(row.df)
+  row.vec <- row.vec[order(row.vec,decreasing = T)]
+  g.vec <- c()
+  prop.sum <- 0 
+  i <- 1
+  while (prop.sum < 0.95){
+    val <- row.vec[i]
+    prop.sum <- prop.sum + val
+    g <- names(val) %&% "("%&%signif(val,digits=3)%&%")"
+    g.vec <- append(g.vec,g)
+    i <- i+1
+  }
+  build.df <- data.frame("Region"=reg,"Groups"=paste0(g.vec,collapse=","))
+  key.df <- rbind(key.df,build.df)
+}
+
+```
+
+Note: These proportions correspond to those with highest means in each 
+MAIS region:
+North: G18
+Northwest: G10
+Central: G9
+South: G5
+SouthEast: G6
+
+```{r}
+write.table(x=mean.df,file=work.dir%&%"admixture-group-means.txt",
+            sep="\t",quote=F,row.names=F,col.names=F)
+write.table(x=key.df,file=work.dir%&%"admixture-group-key.txt",
+            sep="\t",quote=F,row.names=F,col.names=F)
+```
+

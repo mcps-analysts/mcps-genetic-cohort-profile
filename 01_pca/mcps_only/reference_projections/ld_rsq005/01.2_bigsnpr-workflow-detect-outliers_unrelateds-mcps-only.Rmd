@@ -1,0 +1,98 @@
+---
+title: "01.2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+library("bigsnpr")
+
+serv.dir <- ""
+work.dir0 <- serv.dir %&% "popgen/01_pca/public_mais/04_mais_rsq90/"
+work.dir <- serv.dir %&% "popgen/01_pca/mcps_only/" %&%
+  "reference_projections/ld_rsq005/"
+base.dir <- serv.dir %&% "popgen/01_pca/public_mais/"
+file.dir <- work.dir %&% "bigsnpr_output/"
+plink.dir <- base.dir %&% "merged_mcps/"
+plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
+bed.file <- plink.dir %&% plink.pre %&% ".bed"
+```
+
+
+```{r}
+obj.svd <- readRDS(file.dir %&% "svd_unrelateds_maf01-mcps-only.rds")
+prob <- bigutilsr::prob_dist(obj.svd$u, ncores = 1)
+S <- prob$dist.self / sqrt(prob$dist.nn)
+write_rds(x=S,file.dir %&% "knn-dist-stats_unrelateds_maf01-mcps-only.rds")
+```
+
+```{r}
+hist.plt <- ggplot() +
+  geom_histogram(aes(S), color = "#000000",
+                 fill = "#000000", alpha = 0.5) +
+  scale_y_sqrt(breaks=c(100,1000,5000,10000,20000,30000)) +
+  theme_bigstatsr() +
+  labs(x = "Statistic of outlierness", y = "Frequency (sqrt-scale)")
+ggsave(plot=hist.plt,filename=file.dir %&% "plots/svd_unrelateds_maf01-mcps-only_histogram.png",
+       height=4,width=6)
+```
+
+
+```{r}
+# PCs 1-12
+setA0 <- plot_grid(plotlist = lapply(1:6, function(k) {
+  plot(obj.svd, type = "scores", scores = 2 * k - 1:0, coeff =0.6) +
+    aes(color = S) +
+    scale_colour_viridis_c()
+}), scale = 0.95)
+ggsave(plot=setA0,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01-mcps-only_pc1-12.png", width=8, height=5)
+
+# PCs 14-20
+setA <- plot_grid(plotlist = lapply(7:10, function(k) {
+  plot(obj.svd, type = "scores", scores = 2 * k - 1:0, coeff =0.6) +
+    aes(color = S) +
+    scale_colour_viridis_c()
+}), scale = 0.95)
+ggsave(plot=setA,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01-mcps-only_pc13-20.png", width=8, height=5)
+
+```
+
+
+```{r}
+setB0 <- plot_grid(plotlist = lapply(1:6, function(k) {
+  plot(obj.svd, type = "scores", scores = 2 * k - 1:0, coeff = 0.6) +
+    aes(color = S > 0.2) +  # threshold based on histogram
+    scale_colour_viridis_d()
+}), scale = 0.95)
+ggsave(plot=setB0,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01-mcps-only_pc1-12_threshold-p2.png", width=8, height=5)
+
+setB <- plot_grid(plotlist = lapply(7:10, function(k) {
+  plot(obj.svd, type = "scores", scores = 2 * k - 1:0, coeff = 0.6) +
+    aes(color = S > 0.2) +  # threshold based on histogram
+    scale_colour_viridis_d()
+}), scale = 0.95)
+ggsave(plot=setB,filename=file.dir %&% 
+  "plots/outlier-detection_unrelateds_maf01-mcps-only_pc13-20_threshold-p2.png", width=8, height=5)
+```
+
+
+# Determine identifiers for "outlier" individuals
+
+```{r}
+keep.vec <- readRDS(file.dir %&% "keep.vec.RDS")
+keep.indices <- readRDS(file.dir %&% "keep.indices.RDS")
+outlier.vec <- keep.vec[S > 0.2]
+keep.vec[S > 0.2]
+```
+

@@ -1,0 +1,543 @@
+---
+title: "03.5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+library("bigsnpr")
+library("RColorBrewer")
+serv.dir <- ""
+work.dir <- serv.dir %&% "popgen/01_pca/public/"
+file.dir <- work.dir %&% "bigsnpr_output/"
+pc.df <- fread(file.dir %&% "pc_projections_unrelateds_maf01.txt")
+```
+
+## Append population labels to PC projection output
+
+```{r}
+onekg.df <- fread(serv.dir %&% "shared/reference_datasets/1000_genomes/"
+ %&% "integrated_call_samples_v3.20130502.ALL.panel",
+                  header=F) %>% dplyr::select(one_of("V1","V2","V3"))
+hgdp.df <- fread(serv.dir %&% "shared/reference_datasets/" %&%
+                   "hgdp_sanger/hgdp_wgs.20190516.metadata.txt",
+                 header=T) %>%
+  dplyr::select(one_of("sample","population","region"))
+```
+
+HGDP has 54 populations and seven regions
+[1] "CENTRAL_SOUTH_ASIA" "AFRICA"             "OCEANIA"            "EUROPE"     
+[5] "MIDDLE_EAST"        "AMERICA"            "EAST_ASIA"  
+
+1KG has 26 populations and five superpopulations
+[1] "EUR" "EAS" "AMR" "SAS" "AFR"
+
+```{r}
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="EUR","EUROPE",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="EAS","EAST_ASIA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="AMR","AMERICA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="SAS","CENTRAL_SOUTH_ASIA",s)
+}) %>% as.character(.)
+onekg.df$V3 <- purrr::map(onekg.df$V3,function(s){
+  ifelse(s=="AFR","AFRICA",s)
+}) %>% as.character(.)
+names(onekg.df) <- c("sample","population","region")
+ref.df <- rbind(hgdp.df,onekg.df)
+
+```
+
+
+```{r}
+
+add_pop_info <- function(pc.df){
+  pb <- txtProgressBar(min=0,max=dim(pc.df)[1],style=3)
+  out.df <- c()
+  for (i in 1:dim(pc.df)[1]){
+    setTxtProgressBar(pb,i)
+    row.df <- pc.df[i,]
+    if (row.df$sample.ID %in% ref.df$sample){
+      sub.df <- filter(ref.df,sample==row.df$sample.ID)
+      names(sub.df)[1] <- "sample.ID"
+      build.df <- dplyr::inner_join(sub.df,row.df,by="sample.ID")
+    } else{
+      sub.df <- data.frame("sample.ID"=row.df$sample.ID,
+                           "population"="MCPS","region"="AMERICA",
+                           stringsAsFactors = F)
+      build.df <- dplyr::inner_join(sub.df,row.df,by="sample.ID")
+    }
+    out.df <- rbind(out.df,build.df)
+  }
+  return(out.df)
+}
+
+
+```
+
+```{r}
+pc.df1 <- add_pop_info(pc.df)
+```
+
+## Look up model information from SVD objects
+
+```{r}
+svd.obj1 <- readRDS(file.dir %&% "svd_unrelateds_maf01.rds")
+(svd.obj1$u %>% dim(.))[1] # 3479 subjects
+(svd.obj1$v %>% dim(.))[1] # 208834 SNPs
+pve.df1 <- data.frame("PC"="PC"%&%1:20,
+                      "PVE"=((svd.obj1$d^2)/sum(svd.obj1$d^2))*100,
+                      stringsAsFactors = F)
+pve.df1$PVE <- pve.df1$PVE %>% prettyNum(digits=3)
+rm(svd.obj1)
+
+```
+
+## Look up number of samples from each source used in the models and projections
+
+```{r}
+plink.dir <- work.dir %&% "merged_mcps/"
+plink.pre <- "merged_mcps-hgdp-1kg"
+bed.file <- plink.dir %&% plink.pre %&% ".bed"
+rel <- fread(file.dir %&% "bigsnpr_relationships.txt")
+obj.bed <- bed(bed.file)
+```
+
+Analysis 1: HGDP, 1KG, and MCPS samples used in PCA, projected to
+remaining MCPS
+
+```{r}
+keep.indices <- readRDS(file.dir %&% "keep.indices.RDS")
+ind.row <- keep.indices#[S < 1.0] # No outlier thresholding is necessary here
+subject.vec <- obj.bed$fam$sample.ID[keep.indices]
+
+samples.hgdp <- subject.vec[grepl("HGDP",subject.vec)]
+samples.1kg.hg <- subject.vec[grepl("HG",subject.vec)]
+samples.1kg.hg <- samples.1kg.hg[!(grepl("HGDP",samples.1kg.hg))]
+samples.1kg.na <- subject.vec[grepl("NA",subject.vec)]
+samples.1kg <- c(samples.1kg.hg,samples.1kg.na)
+samples.mcps <- subject.vec[grepl("MCPS",subject.vec)]
+samples.hgdp %>% length(.) # 909 HGDP samples
+samples.1kg %>% length(.) # 2470 1KG samples
+samples.mcps %>% length(.) # 100 MCPS samples
+
+projected.samples <- pc.df1$sample.ID[!(pc.df1$sample.ID %in% subject.vec)]
+projected.samples %>% length(.) # 138465 samples
+projected.hgdp <- projected.samples[grepl("HGDP",projected.samples)]
+projected.1kg.hg <- projected.samples[grepl("HG",projected.samples)]
+projected.1kg.hg <- projected.1kg.hg[!(grepl("HGDP",projected.1kg.hg))]
+projected.1kg.na <- projected.samples[grepl("NA",projected.samples)]
+projected.1kg <- c(projected.1kg.hg,projected.1kg.na)
+projected.mcps <- projected.samples[grepl("MCPS",projected.samples)]
+projected.hgdp %>% length(.) # 20 HGDP samples
+projected.1kg %>% length(.) # 34 1KG samples
+projected.mcps %>% length(.) # 138411 MCPS samples
+
+pb <- txtProgressBar(min=0,max=dim(pc.df1)[1],style=3)
+pc.df1$sample.type <- purrr::map(1:dim(pc.df1)[1],function(i){
+  setTxtProgressBar(pb,i)
+  s <- pc.df1$sample.ID[i]
+  ifelse(s%in%subject.vec,"model","projected")
+}) %>% as.character(.)
+
+```
+
+
+
+```{r}
+write.table(x=pc.df1,file=file.dir%&%
+              "pc_projections_unrelateds_maf01_pop-info.txt",
+            quote=F,sep="\t",row.names=F)
+```
+
+
+```{r}
+#pc.df1 <- fread(file.dir %&%
+#              "pc_projections_unrelateds_maf01_pop-info.txt")
+```
+
+
+## Create PC Plots color-coded by population/ancestry
+
+### PC Analysis 1
+
+Create Plot ID variable
+```{r}
+plot.ID1 <- c()
+plot.ID2 <- c()
+pb <- txtProgressBar(min=0,max=dim(pc.df1)[1],style=3)
+for (i in 1:dim(pc.df1)[1]){
+  setTxtProgressBar(pb,i)
+  row.df <- pc.df1[i,] %>%
+    dplyr::select(one_of("sample.ID","population","region","sample.type"))
+  samp.id <- row.df$sample.ID
+  source <- ifelse(grepl("HGDP",samp.id),"HGDP",
+                   ifelse(grepl("MCPS",samp.id),"MCPS","KG"))
+  region <- row.df$region
+  if (source=="HGDP"){
+    pop <- ifelse(region=="EUROPE","EUR",
+           ifelse(region=="AFRICA","AFR",
+           ifelse(region=="AMERICA","AMR",
+           ifelse(region=="EAST_ASIA","EAS",
+           ifelse(region=="CENTRAL_SOUTH_ASIA","C-SAS",
+           ifelse(region=="OCEANIA","OCN","ME"))))))
+  } else if (source=="KG"){
+    pop <- ifelse(region=="EUROPE","EUR",
+           ifelse(region=="AFRICA","AFR",
+           ifelse(region=="AMERICA","AMR",
+           ifelse(region=="EAST_ASIA","EAS","SAS"))))
+  } else{
+    pop <- "AMR"
+  }
+  model <- row.df$sample.type
+  mod <- ifelse(model=="model","(M)","(P)")
+  pid1 <- source %&% "_" %&% pop #%&% " " %&% mod
+  pid2 <- source %&% "_" %&% pop %&% "_" %&%
+    row.df$population # %&% " " %&% mod
+  plot.ID1 <- append(plot.ID1,pid1)
+  plot.ID2 <- append(plot.ID2,pid2)
+}
+pc.df1$plot.ID1 <- plot.ID1
+pc.df1$plot.ID2 <- plot.ID2
+```
+
+```{r}
+write.table(x=pc.df1,file=file.dir%&%
+              "pc_projections_unrelateds_maf01_pop-info.txt",
+            quote=F,sep="\t",row.names=F)
+```
+
+Plot PC1 vs PC2
+
+
+```{r}
+
+cvec <- brewer.pal(12,name="Paired")
+
+pc.df1$plot.ID1 <- factor(pc.df1$plot.ID1,
+ levels=as.character(unique(arrange(pc.df1,region,model)$plot.ID1)))
+```
+
+```{r}
+
+plt1a <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC1,y=PC2)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC1 (" %&% filter(pve.df1,PC=="PC1")$PVE %&% "%)") +
+  ylab(label="PC2 (" %&% filter(pve.df1,PC=="PC2")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1a,filename=file.dir %&% "plots/pca_model1_pc1vs2.png",
+       height=5,width=7)
+
+```
+
+
+Plot PC1 vs PC3
+
+
+```{r}
+
+plt1b <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC1,y=PC3)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC1 (" %&% filter(pve.df1,PC=="PC1")$PVE %&% "%)") +
+  ylab(label="PC3 (" %&% filter(pve.df1,PC=="PC3")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1b,filename=file.dir %&% "plots/pca_model1_pc1vs3.png",
+       height=5,width=7)
+```
+
+
+Plot PC2 vs PC3
+
+
+```{r}
+
+plt1c <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC2,y=PC3)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC2 (" %&% filter(pve.df1,PC=="PC2")$PVE %&% "%)") +
+  ylab(label="PC3 (" %&% filter(pve.df1,PC=="PC3")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1c,filename=file.dir %&% "plots/pca_model1_pc2vs3.png",
+       height=5,width=7)
+
+```
+
+
+Plot PC4 vs PC5
+
+
+```{r}
+
+plt1d <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC4,y=PC5)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC4 (" %&% filter(pve.df1,PC=="PC4")$PVE %&% "%)") +
+  ylab(label="PC5 (" %&% filter(pve.df1,PC=="PC5")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1d,filename=file.dir %&% "plots/pca_model1_pc4vs5.png",
+       height=5,width=7)
+
+```
+
+
+Plot PC6 vs PC7
+
+
+```{r}
+
+plt1e <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC6,y=PC7)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC6 (" %&% filter(pve.df1,PC=="PC6")$PVE %&% "%)") +
+  ylab(label="PC7 (" %&% filter(pve.df1,PC=="PC7")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1e,filename=file.dir %&% "plots/pca_model1_pc6vs7.png",
+       height=5,width=7)
+
+```
+
+Plot PC8 vs PC9
+
+
+```{r}
+
+plt1f <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC8,y=PC9)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC8 (" %&% filter(pve.df1,PC=="PC8")$PVE %&% "%)") +
+  ylab(label="PC9 (" %&% filter(pve.df1,PC=="PC9")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1f,filename=file.dir %&% "plots/pca_model1_pc8vs9.png",
+       height=5,width=7)
+
+```
+
+Plot PC10 vs PC11
+
+```{r}
+
+plt1g <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC10,y=PC11)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC10 (" %&% filter(pve.df1,PC=="PC10")$PVE %&% "%)") +
+  ylab(label="PC11 (" %&% filter(pve.df1,PC=="PC11")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1g,filename=file.dir %&% "plots/pca_model1_pc10vs11.png",
+       height=5,width=7)
+
+```
+
+Plot PC12 vs PC13
+
+
+```{r}
+
+plt1h <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC12,y=PC13)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC12 (" %&% filter(pve.df1,PC=="PC12")$PVE %&% "%)") +
+  ylab(label="PC13 (" %&% filter(pve.df1,PC=="PC13")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1h,filename=file.dir %&% "plots/pca_model1_pc12vs13.png",
+       height=5,width=7)
+
+```
+
+
+Plot PC14 vs PC15
+
+
+```{r}
+
+plt1i <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC14,y=PC15)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC14 (" %&% filter(pve.df1,PC=="PC14")$PVE %&% "%)") +
+  ylab(label="PC15 (" %&% filter(pve.df1,PC=="PC15")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1i,filename=file.dir %&% "plots/pca_model1_pc14vs15.png",
+       height=5,width=7)
+
+```
+
+Plot PC16 vs PC17
+
+
+```{r}
+
+plt1j <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC16,y=PC17)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC16 (" %&% filter(pve.df1,PC=="PC16")$PVE %&% "%)") +
+  ylab(label="PC17 (" %&% filter(pve.df1,PC=="PC17")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1j,filename=file.dir %&% "plots/pca_model1_pc16vs17.png",
+       height=5,width=7)
+
+```
+
+Plot PC16 vs PC17
+
+```{r}
+
+plt1k <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC18,y=PC19)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC18 (" %&% filter(pve.df1,PC=="PC18")$PVE %&% "%)") +
+  ylab(label="PC19 (" %&% filter(pve.df1,PC=="PC19")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1k,filename=file.dir %&% "plots/pca_model1_pc18vs19.png",
+       height=5,width=7)
+
+```
+
+Plot PC19 vs PC20
+
+
+```{r}
+
+plt1l <- ggplot(data=filter(pc.df1,population=="MCPS"),
+                aes(x=PC19,y=PC20)) +
+  geom_point(shape=21,fill="grey25",aes(alpha=sample.type)) +
+  geom_point(data=filter(pc.df1,population!="MCPS"),
+             shape=21,aes(fill=plot.ID1,alpha=sample.type)) +
+  scale_alpha_discrete(range=c(0.95,0.3),name="Sample Type") +
+  scale_fill_manual(values=c("gold1",cvec[11],
+                             cvec[3],cvec[4],
+                             cvec[7],cvec[8],
+                             cvec[1],cvec[2],
+                             cvec[5],cvec[6],
+                             cvec[9],cvec[10]),name="Source") +
+  xlab(label="PC19 (" %&% filter(pve.df1,PC=="PC19")$PVE %&% "%)") +
+  ylab(label="PC20 (" %&% filter(pve.df1,PC=="PC20")$PVE %&% "%)") +
+  theme_classic()
+
+ggsave(plot=plt1l,filename=file.dir %&% "plots/pca_model1_pc19vs20.png",
+       height=5,width=7)
+
+```
