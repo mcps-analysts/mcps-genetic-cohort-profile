@@ -1,0 +1,21 @@
+#!/bin/bash
+#$ -cwd
+#$ -P emberson.prjc
+#$ -N MT_60K_SVDii
+#$ -q short.qc
+#$ -pe shmem 36
+#$ -o ./pop_structure/code/IMPUTE5/60K_analyses/logs/SVD/MT_MCPS_60K_SVDii.out
+#$ -e ./pop_structure/code/IMPUTE5/60K_analyses/logs/SVD/MT_MCPS_60K_SVDii.err
+
+echo "-----------------------------------------"
+echo "Run on host: "`hostname`
+echo "Operating system: "`uname -s`
+echo "Username: "`whoami`
+echo "Started at:"`date`
+echo "-----------------------------------------"
+
+data_dir=./pop_structure/data/IMPUTE5_Output
+code_dir=./pop_structure/code/IMPUTE5/60K_analyses
+
+module load R/4.1.0-foss-2021a
+Rscript $code_dir/SVD_MCPS60K.R
