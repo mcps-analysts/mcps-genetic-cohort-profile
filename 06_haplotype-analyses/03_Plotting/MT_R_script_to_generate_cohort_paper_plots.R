@@ -10,9 +10,32 @@ Mex_C_col <- "#FBFF6F"
 Mex_S_col <- "#FB9A99"
 Mex_SE_col <- "#B3367AFF"
 
-MT_cohort_plot <- read.csv("./tables and figures/ancestry/population_structure/haplotype-based/MT_MCPS_60K_PC1_20_7way_ancs.txt", sep="")
+#load PCs
+MCPS_60K_PCs1.20 <- read.csv("./PCs/MCPS_60K_PCs1-20.txt", sep="")
+#load corresponding FID, IIDs
+MT_MCPS_60K_FID_IID <- read.table("~/DPhil/Pop_Structure/filtering/60K_analyses/PCs/FIDs_IIDs_60K.txt", quote="\"")
+colnames(MT_MCPS_60K_FID_IID) <- c("FID", "IID")
+
+#combine PCs and FID, IIDs
+MT_MCPS_60K_PCscIIDs <- cbind(MT_MCPS_60K_FID_IID, MCPS_60K_PCs1.20)
+#load RFMix ancestry estimates 
+global.ancestry.estimates <- read.delim("/PCs/global-ancestry-estimates.txt")
+colnames(global.ancestry.estimates) <- c("numeric_key", "Africa", "Europe", "Mexico_C", "Mexico_N", "Mexico_NW", "Mexico_S", "Mexico_SE")
+
+#load RGN ID to IID key
+freeze_145k_id.key <- read.csv("./PCs/freeze_145k_id-key.csv")
+colnames(freeze_145k_id.key) <- c("IID", "Tube_barcode", "numeric_key", "X", "Duplicated_numeric_key")
+
+#combine ID key and ancestries
+IID_7.way_ancs <- join(freeze_145k_id.key, global.ancestry.estimates)
+MT_MCPS_60K_PCs_7way_anc <- join(MT_MCPS_60K_PCscIIDs, IID_7.way_ancs)
+
+#combine ancestries and PCs
+MT_cohort_plot <- join(MT_MCPS_60K_PCscIIDs, IID_7.way_ancs)
 
 setwd("./tables and figures/ancestry/population_structure/haplotype-based/pdf_graphs/")
+
+	###Make plots for paper###
 
 #Fade to black##
 
