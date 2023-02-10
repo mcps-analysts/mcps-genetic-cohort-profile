@@ -1,0 +1,86 @@
+---
+title: '01.1_prepare-sample-files.Rmd'
+output: html_document
+---
+
+```{r setup,  include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a, b) paste0(a, b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+work.dir.serv <- serv.dir %&% 
+  "popgen/04_rfmix/including_mais_samples/seven_way/"
+input.dir <- work.dir.serv %&% "input_files/"
+output.dir <- work.dir.serv %&% "output_files/"
+```
+
+```{r}
+samp.df <- fread(input.dir %&% "reference-sample-list.txt", header=F)
+```
+
+Read in pre-selected reference samples based on TeraStructure analysis 
+```{r}
+tera.dir <- serv.dir %&% "popgen/02.1_terastructure/" %&%
+  "mais_analyses/mais_amr_afr_eur_eas/output_files/"
+afr.df <- fread(tera.dir %&% "samples-k18-p90-afr.txt", header=F)
+eur.df <- fread(tera.dir %&% "samples-k18-p90-eur.txt", header=F)
+mex.n.df <- fread(tera.dir %&% "samples-k18-p90-amr-north.txt", header=F)
+mex.nw.df <- fread(tera.dir %&% "samples-k18-p90-amr-northwestern.txt", header=F)
+mex.s.df <- fread(tera.dir %&% "samples-k18-p90-amr-south.txt", header=F)
+mex.se.df <- fread(tera.dir %&% "samples-k18-p90-amr-southeastern.txt", header=F)
+mex.c.df <- fread(tera.dir %&% "samples-k18-p90-amr-central.txt", header=F)
+```
+
+Extract individuals 
+```{r}
+keep.afr <- purrr::map(afr.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>% unlist(.) %>% as.character(.)  %>% unique(.) 
+keep.eur <- purrr::map(eur.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>% unlist(.) %>% as.character(.)  %>% unique(.) 
+
+keep.mex.n <- purrr::map(mex.n.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>%  unlist(.) %>% as.character(.) %>% unique(.) 
+keep.mex.nw <- purrr::map(mex.nw.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>%  unlist(.) %>% as.character(.) %>% unique(.) 
+keep.mex.s <- purrr::map(mex.s.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>%  unlist(.) %>% as.character(.) %>% unique(.) 
+keep.mex.se <- purrr::map(mex.se.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>%  unlist(.) %>% as.character(.) %>% unique(.) 
+keep.mex.c <- purrr::map(mex.c.df$V1, function(s){
+  samp.df$V1[grepl(pattern=s, x=samp.df$V1)]
+}) %>%  unlist(.) %>% as.character(.) %>% unique(.) 
+
+keep.vec <- unique(c(keep.afr, keep.eur, keep.mex.n, keep.mex.nw, keep.mex.s, 
+                     keep.mex.se, keep.mex.c))
+
+build.df1 <- data.frame("V1"=keep.afr, "V2"="AFRICA", stringsAsFactors = F)
+build.df2<- data.frame("V1"=keep.eur, "V2"="EUROPE", stringsAsFactors = F)
+build.df3a<- data.frame("V1"=keep.mex.n, "V2"="MEXICO_N", stringsAsFactors = F)
+build.df3b<- data.frame("V1"=keep.mex.nw, "V2"="MEXICO_NW", stringsAsFactors = F)
+build.df3c<- data.frame("V1"=keep.mex.s, "V2"="MEXICO_S", stringsAsFactors = F)
+build.df3d<- data.frame("V1"=keep.mex.se, "V2"="MEXICO_SE", stringsAsFactors = F)
+build.df3e<- data.frame("V1"=keep.mex.c, "V2"="MEXICO_C", stringsAsFactors = F)
+
+map.df <- rbind(build.df1, build.df2, build.df3a, build.df3b, build.df3c, 
+                build.df3d, build.df3e)
+```
+
+```{r}
+write.table(x=keep.vec, file=input.dir %&%"ref-samples.txt", sep="\t", 
+            quote=F, row.names=F, col.names=F)
+write.table(x=map.df, 
+            file=input.dir %&%"ref-map.txt", sep="\t", 
+            quote=F, row.names=F, col.names=F)
+```
