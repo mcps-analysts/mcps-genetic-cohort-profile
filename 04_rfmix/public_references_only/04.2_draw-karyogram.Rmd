@@ -1,0 +1,121 @@
+---
+title: '04.2_draw-karyogram.Rmd'
+output: html_document
+---
+
+```{r setup,  include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a, b) paste0(a, b)
+library("data.table")
+library("tidyverse")
+library("viridis")
+serv.dir <- ""
+work.dir <- serv.dir %&% 
+  "popgen/04_rfmix/public_references_only/"
+input.dir <- work.dir %&% "output_files/collapsed_info/"
+output.dir <- work.dir %&% "output_files/collapsed_info/plots/"
+```
+
+```{r}
+mcps.id.df <- fread(work.dir %&% "output_files/examples.n16.mcps-ids.txt", 
+                    header=F)
+rgn.id.df <- fread(work.dir %&% "output_files/examples.n16.rgn-ids.txt", 
+                    header=F)
+sample.vec <- unique(rgn.id.df$V1)
+mcps.name.vec <- unique(mcps.id.df$V1)
+```
+
+
+## Karyogram function 
+
+```{r}
+col.vec <- viridis::viridis(20)
+
+karyogram_plot <- function(sample, cvec){
+  hapA.df <- fread(input.dir %&%
+    sample %&% "_A.bed")
+  hapB.df <- fread(input.dir %&%
+    sample %&% "_B.bed")
+  hapA.df$ystart <- hapA.df$V1
+  hapA.df$yend <- hapA.df$V1+0.4
+  hapB.df$ystart <- hapB.df$V1
+  hapB.df$yend <- hapB.df$V1-0.4
+  hap.df <- rbind(hapA.df, hapB.df)  
+  plt <- ggplot(data=hap.df, aes(xmin=V2, xmax=V3, 
+                                ymin=ystart, ymax=yend)) + 
+    geom_rect(aes(fill=V4), color="black", size=0.15) + 
+    scale_y_reverse(breaks=seq(1, 22, 1)) +
+    scale_x_continuous(breaks=seq(0, 300, 25)) + 
+    scale_fill_manual(values=cvec, 
+                      name=NULL)  + 
+    xlab("Genetic position (cM)") + 
+    ylab("Chromosome") + 
+    ggtitle("Sample: "%&%sample) + 
+    theme(legend.position=c(0.80, 0.2), 
+        panel.border= element_blank(), 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        axis.line = element_line(colour = "black",  
+          size = rel(1)), 
+        strip.background = element_rect(fill = "white",  
+          colour = "black",  size = rel(2)), 
+        axis.ticks.y = element_blank(), 
+        panel.background  = element_blank(), 
+        plot.background   = element_blank()) + 
+    coord_cartesian(expand=FALSE, clip="off", 
+        xlim=c(-5, 310), ylim=c(23, 0))
+  return(plt)
+}
+```
+
+
+```{r}
+library("gridExtra")
+cvec <- c(col.vec[20], col.vec[15], col.vec[9], "grey50")
+
+samp.vec <- sample.vec
+kplt.list <- list()
+for (i in 1:length(samp.vec)){
+  afile <- input.dir %&% samp.vec[i] %&% "_A.bed"
+  bfile <- input.dir %&% samp.vec[i] %&% "_B.bed"
+  if (file.exists(afile) & file.exists(bfile)){
+    info.a <- file.info(afile);info.b <- file.info(bfile)
+    empty.a <-ifelse(is.na(info.a$size)|info.a$size==0, TRUE, FALSE)
+    empty.b <-ifelse(is.na(info.b$size)|info.b$size==0, TRUE, FALSE)
+    if (empty.a==FALSE & empty.b==FALSE){
+      print(samp.vec[i])
+      kplt.list[[i]] <- karyogram_plot(samp.vec[i], cvec)
+      # mcps.name.vec[i]
+    }
+  }
+}
+```
+
+Manually adjust color scheme for samples w/o AFR admixture
+```{r}
+cvec0 <- c(col.vec[15], col.vec[9], "grey50")
+kplt.list[[5]] <- karyogram_plot(samp.vec[5], cvec0)
+kplt.list[[6]] <- karyogram_plot(samp.vec[6], cvec0)
+
+kplt.obj <- grid.arrange(grobs=kplt.list, nrow=2, ncol=8)
+kplt.list.sub <- list(kplt.list[[1]], kplt.list[[2]], kplt.list[[3]], 
+                      kplt.list[[4]], kplt.list[[5]], kplt.list[[6]], 
+                      kplt.list[[7]], kplt.list[[8]], kplt.list[[9]], 
+                      kplt.list[[10]], kplt.list[[11]], kplt.list[[12]])
+kplt.obj.sub <- grid.arrange(grobs=kplt.list.sub, nrow=2, ncol=6)
+```
+
+
+```{r}
+kplt.list.sub[[1]]
+kplt.list.sub[[5]] <- karyogram_plot("1060308796", cvec0) 
+kplt.obj.sub <- grid.arrange(grobs=kplt.list.sub, nrow=2, ncol=6)
+ggsave(plot=kplt.obj.sub, filename=output.dir%&%"example-karyograms-n12.png", 
+       width=20, height=10)
+```
+

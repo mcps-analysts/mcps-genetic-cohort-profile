@@ -1,0 +1,106 @@
+---
+title: '01.1_prepare-input-files.Rmd'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a, b) paste0(a, b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+work.dir.serv <- serv.dir %&% 
+  "popgen/04_rfmix/public_references_only/"
+input.dir <- work.dir.serv %&% "input_files/"
+output.dir <- work.dir.serv %&% "output_files/"
+```
+
+First need to extract sample ids from a vcf file 
+```{bash}
+cd popgen/03_phasing/output_files
+module load BCFtools/1.10.2-GCC-8.3.0
+bcftools query -l merged_mcps-hgdp-1kg_chr22_phased.vcf > ../../04_rfmix/public_references_only/input_files/sample-ids.txt
+cd popgen/04_rfmix
+```
+
+```{r}
+samp.df <- fread(input.dir %&% "sample-ids.txt", header=F)
+names(samp.df)[1] <- "VCF.ID"
+pb <- txtProgressBar(min=0, max=dim(samp.df)[1], style=3)
+samp.df$ID <- purrr::map(1:dim(samp.df)[1], function(i){
+  setTxtProgressBar(pb, i)
+  name.string <- samp.df$VCF.ID[i]
+  if (grepl("DUP", name.string) & !(grepl("FAM", name.string))){
+    strsplit(name.string, split="-DUP-")[[1]][2]
+  } else if(grepl("DUP", name.string) & grepl("FAM", name.string)){
+    s.vec <- strsplit(name.string, split="-")[[1]]
+    paste0(s.vec[2:length(s.vec)], collapse="-")
+  } else{
+    strsplit(name.string, split="-")[[1]][2]
+  }
+}) %>% as.character(.)
+```
+
+Merge with source population information (from PCA analysis) 
+
+```{r}
+pca.dir <- work.dir.serv <- serv.dir %&% 
+  "popgen/01_pca/"
+pca.df <- fread(pca.dir %&% "public/bigsnpr_output/" %&% 
+  "pc_projections_unrelateds_maf01_pop-info.txt")
+sub.df <- dplyr::select(pca.df, one_of("sample.ID", "population", "region"))
+names(sub.df)[1] <- "ID"
+
+full.df <- dplyr::inner_join(samp.df, sub.df, by="ID")
+
+vec1 <- samp.df$ID[!(samp.df$ID %in% sub.df$ID)]
+vec2 <- sub.df$ID[!(sub.df$ID %in% samp.df$ID)]
+```
+
+All samples accounted for between datasets 
+
+
+## Create input sample files for RFMix 
+
+Need cohort sample file
+
+```{r}
+mcps.vec <- full.df$VCF.ID[grepl("MCPS", full.df$VCF.ID)]
+write.table(x=mcps.vec, file=input.dir %&%"mcps-samples.txt", sep="\t", 
+            quote=F, row.names=F, col.names=F)
+```
+
+Need to select reference samples to keep,  and include in map file,  considering 
+three-way admixture of ancestry from Africa, America, and Europe 
+
+Accessing inferred ancestral population reference samples from TeraStructure
+
+```{r}
+tera.dir <- serv.dir %&% 
+  "popgen/02_terastructure/freeze_145k/" 
+afr.df <- fread(tera.dir %&%
+  "output_files/teraK12.inferred-african-references.txt",header=F)
+eur.df <- fread(tera.dir %&%
+  "output_files/teraK12.inferred-european-references.txt",header=F)
+amr.df <- fread(tera.dir %&%
+  "output_files/teraK12.inferred-american-references.txt",header=F)
+refsamp.df <- rbind(afr.df, eur.df, amr.df)
+```
+
+```{r}
+#table(full.df$region)
+ref.df <- filter(full.df, region %in% c("AFRICA", "EUROPE", "AMERICA"), 
+                 population!="MCPS", ID%in%refsamp.df$V1)
+write.table(x=ref.df$VCF.ID, file=input.dir %&%"ref-samples.txt", sep="\t", 
+            quote=F, row.names=F, col.names=F)
+write.table(x=dplyr::select(ref.df, one_of("VCF.ID", "region")), 
+            file=input.dir %&%"ref-map.txt", sep="\t", 
+            quote=F, row.names=F, col.names=F)
+```
+
+
