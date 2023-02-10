@@ -1,0 +1,726 @@
+---
+title: '04.1'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a, b) paste0(a, b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+base.dir <- serv.dir %&% "popgen/"
+work.dir <- serv.dir %&%
+  "popgen/02.1_terastructure/mais_amr_afr_eur_eas/"
+pop.file <- serv.dir%&% "shared/reference_datasets/" %&%
+  "mais_information/reference-population-labels.txt"
+tera.dir.pre1 <- "n3274-k"
+tera.dir.pre2 <-"-l226827-select_k_"
+tera.dir.suf <- "_rep"
+```
+
+```{r}
+samp.df <- fread(work.dir %&% "input_files/subset-samples.fam", 
+                 header=F)
+pop.df <- fread(pop.file)
+ref.df <- c()
+pb <- txtProgressBar(min=0, max=dim(samp.df)[1], style=3)
+for (i in 1:dim(samp.df)[1]){
+  setTxtProgressBar(pb, i)
+  samp <- samp.df$V2[i]
+  sub.df <- filter(pop.df, sample==samp)
+  if (dim(sub.df)[1]==0){
+    sub.df <- data.table("sample"=samp, "population"="MCPS", 
+                         "region"="AMERICA", stringsAsFactors=F)
+  }
+  ref.df <- rbind(ref.df, sub.df)
+}
+```
+
+
+## Functions
+
+```{r}
+get_top_groups <- function(mean.df, thresh=0.99){
+  sort.df <- mean.df %>% sort(., decreasing = TRUE)
+  grp.names <- names(sort.df)
+  grp.vec <- as.numeric(sort.df)
+  cumsum = 0 
+  keep.vec <- c()
+  for (i in 1:length(grp.vec)){
+    val <- grp.vec[i]
+    if (cumsum<=thresh){
+      keep.vec <- append(keep.vec, grp.names[i])
+      cumsum <- cumsum + val 
+    }
+  }
+  return(list(keep.vec, cumsum))
+}
+
+evaluate_thetas <- function(k){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%"1"%&%"/theta.txt"
+  theta.df <- fread(theta.file, header=F)[, 1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df, theta.df)  
+  # Find group averages by region in African,  Europe,  and Asia 
+  afr.df <- filter(theta.df, region=="AFRICA")
+  afr.sub.df <- dplyr::select(afr.df, contains("G"))
+  afr.mean.df <- dplyr::summarise(afr.sub.df, across(G1:("G"%&%k), mean))
+  eas.df <- filter(theta.df, region=="EAST_ASIA")
+  eas.sub.df <- dplyr::select(eas.df, contains("G"))
+  eas.mean.df <- dplyr::summarise(eas.sub.df, across(G1:("G"%&%k), mean))
+  eur.df <- filter(theta.df, region=="EUROPE")
+  eur.sub.df <- dplyr::select(eur.df, contains("G"))
+  eur.mean.df <- dplyr::summarise(eur.sub.df, across(G1:("G"%&%k), mean))
+  afr.list <- get_top_groups(afr.mean.df, 0.95)
+  eas.list <- get_top_groups(eas.mean.df, 0.95)
+  eur.list <- get_top_groups(eur.mean.df, 0.95)
+  retain.vec <- c(afr.list[[1]], eas.list[[1]], eur.list[[1]])
+  remain.vec <- ("G"%&%1:k)[!(("G"%&%1:k) %in% retain.vec)]
+  afr.score <- dplyr::select(theta.df, one_of(afr.list[[1]])) %>% 
+    rowSums(.)
+  eas.score <- dplyr::select(theta.df, one_of(eas.list[[1]])) %>% 
+    rowSums(.)
+  eur.score <- dplyr::select(theta.df, one_of(eur.list[[1]])) %>% 
+    rowSums(.)
+  amr.score <- dplyr::select(theta.df, one_of(remain.vec)) %>% 
+    rowSums(.)
+  theta.df$afr.score <- afr.score
+  theta.df$eas.score <- eas.score
+  theta.df$eur.score <- eur.score
+  theta.df$amr.score <- amr.score
+  # Order individuals by European score 
+  samp.order <- arrange(theta.df, desc(eur.score))$sample
+  afr.order <- (filter(theta.df, region=="AFRICA") %>% 
+    arrange(., desc(afr.score)))$sample
+  eas.order <- (filter(theta.df, region=="EAST_ASIA") %>% 
+    arrange(., desc(eas.score)))$sample 
+  eur.order <- (filter(theta.df, region=="EUROPE") %>% 
+    arrange(., desc(eur.score)))$sample 
+  amr.order <- (filter(theta.df, region=="AMERICA") %>% 
+    arrange(., desc(amr.score)))$sample 
+  samp.order.revised <- c(afr.order, eas.order, eur.order, amr.order)
+  return(list(afr.list[[1]], eas.list[[1]], eur.list[[1]], 
+              remain.vec, samp.order, samp.order.revised))
+}
+```
+
+
+```{r}
+create_plot_df <- function(k){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%"1"%&%"/theta.txt"
+  theta.df <- fread(theta.file, header=F)[, 1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df, theta.df)
+  plot.df <- c()
+  pb <- txtProgressBar(min=0, max=dim(theta.df)[1], style=3)
+  for (i in 1:dim(theta.df)[1]){
+    setTxtProgressBar(pb, i)
+    row.df <- theta.df[i, ]
+    prop.vec <- row.df[, (dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      as.numeric(.)
+    grp.names <- row.df[, (dim(row.df)[2]-k+1):dim(row.df)[2]] %>%
+      names(.)
+    build.df <- data.frame("IID"=row.df$sample, 
+                           "Population"=row.df$population, 
+                           "Region"=row.df$region, 
+                           "Proportion"=prop.vec, "K"=grp.names, 
+                           stringsAsFactors = F)
+    plot.df <- rbind(plot.df, build.df)
+  }
+  return(plot.df)
+}
+```
+
+```{r}
+library("RColorBrewer")
+col.func <- colorRampPalette(brewer.pal(11, 
+                             name="Spectral"))
+```
+
+GGplot facet by regions 
+```{r}
+ancestry_plot_regions <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k)
+  grp.order <- c(group.list[[1]], group.list[[2]], group.list[[3]], 
+                 group.list[[4]])
+  k.df$K <- factor(k.df$K, levels=grp.order)
+  afr.num <- length(group.list[[1]])
+  eas.num <- length(group.list[[2]])
+  eur.num <- length(group.list[[3]])
+  amr.num <- length(group.list[[4]])
+  
+  afr.colors <- colorRampPalette(
+    brewer.pal(9, name="YlOrRd"))(90)[20:30]
+  afr.step.size <- round(length(afr.colors)/afr.num, 0)
+  afr.seq <- seq(1, length(afr.colors), afr.step.size)[1:afr.num]
+  afr.colors <- afr.colors[afr.seq]
+  
+  eas.colors <- colorRampPalette(
+    brewer.pal(9, name="Reds"))(90)[30:60]
+  eas.step.size <- round(length(eas.colors)/eas.num, 0)
+  eas.seq <- seq(1, length(eas.colors), eas.step.size)[1:eas.num]
+  eas.colors <- eas.colors[eas.seq]
+  
+  eur.colors <- colorRampPalette(
+    brewer.pal(9, name="Blues"))(90)[30:80]
+  eur.step.size <- round(length(eur.colors)/eur.num, 0)
+  eur.seq <- seq(1, length(eur.colors), eur.step.size)[1:eur.num]
+  eur.colors <- eur.colors[eur.seq]
+
+  amr.colors <- colorRampPalette(
+    brewer.pal(9, name="Greens"))(90)[30:80]
+  amr.step.size <- round(length(amr.colors)/amr.num, 0)
+  amr.seq <- seq(1, length(amr.colors), amr.step.size)[1:amr.num]
+  amr.colors <- amr.colors[amr.seq]
+  
+  cvec <- c(afr.colors, eas.colors, eur.colors, amr.colors)
+
+  samp.order <- group.list[[5]] #group.list[[5]]
+  k.df$IID <- factor(k.df$IID, levels=samp.order)
+  # Create plot 
+  plt <- ggplot(data=k.df, aes(x=IID, y=Proportion)) + 
+    geom_bar(stat="identity", aes(fill=K, col=K)) +  
+    scale_fill_manual(values=cvec, name="Group") + 
+    scale_color_manual(values=cvec, name="Group") + 
+    facet_wrap(~Region, scales="free_x", 
+               strip.position="bottom", 
+                nrow=1) + 
+    theme(axis.text.x=element_blank(), 
+          axis.title.x = element_blank(), 
+          axis.ticks.x=element_blank(), 
+          panel.background = element_blank(), 
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(), 
+          strip.placement = "outside", 
+          strip.background = element_rect(fill="white"), 
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k)
+  return(plt)
+}
+```
+
+GGplot,  ordered by region,  population,  and ancestry scores 
+```{r}
+ancestry_plot_unfaceted <- function(k.df){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k)
+  grp.order <- c(group.list[[1]], group.list[[2]], group.list[[3]], 
+                 group.list[[4]])
+  k.df$K <- factor(k.df$K, levels=grp.order)
+  afr.num <- length(group.list[[1]])
+  eas.num <- length(group.list[[2]])
+  eur.num <- length(group.list[[3]])
+  amr.num <- length(group.list[[4]])
+  
+  afr.colors <- colorRampPalette(
+    brewer.pal(9, name="YlOrRd"))(90)[20:30]
+  afr.step.size <- round(length(afr.colors)/afr.num, 0)
+  afr.seq <- seq(1, length(afr.colors), afr.step.size)[1:afr.num]
+  afr.colors <- afr.colors[afr.seq]
+  
+  eas.colors <- colorRampPalette(
+    brewer.pal(9, name="Reds"))(90)[30:60]
+  eas.step.size <- round(length(eas.colors)/eas.num, 0)
+  eas.seq <- seq(1, length(eas.colors), eas.step.size)[1:eas.num]
+  eas.colors <- eas.colors[eas.seq]
+  
+  eur.colors <- colorRampPalette(
+    brewer.pal(9, name="Blues"))(90)[30:80]
+  eur.step.size <- round(length(eur.colors)/eur.num, 0)
+  eur.seq <- seq(1, length(eur.colors), eur.step.size)[1:eur.num]
+  eur.colors <- eur.colors[eur.seq]
+
+  amr.colors <- colorRampPalette(
+    brewer.pal(9, name="Greens"))(90)[30:80]
+  amr.step.size <- round(length(amr.colors)/amr.num, 0)
+  amr.seq <- seq(1, length(amr.colors), amr.step.size)[1:amr.num]
+  amr.colors <- amr.colors[amr.seq]
+  
+  cvec <- c(afr.colors, eas.colors, eur.colors, amr.colors)
+
+  samp.order <- group.list[[6]] 
+  k.df$IID <- factor(k.df$IID, levels=samp.order)
+  vline.df <- c()
+  count<-0
+  reg.vec <- c("AFRICA", "EAST_ASIA", "EUROPE", "AMERICA")
+  for (anc in reg.vec){
+    anc.df <- filter(k.df, Region==anc)
+    for (pop in levels(factor(anc.df$Population))){
+      p.df <- filter(anc.df, Population==pop)
+      ninds <- length(unique(p.df$IID))
+      count<- count + ninds
+      build.df <- data.frame("Region"=anc, "Population"=pop, 
+        "num.inds"=ninds, "index"=count, 
+        stringsAsFactors = F)
+      vline.df <- rbind(vline.df, build.df)
+    }
+  }
+  vline.vec <- c(filter(vline.df, Region=="AFRICA")$index %>% max(.), 
+                 filter(vline.df, Region=="EAST_ASIA")$index %>% max(.), 
+                 filter(vline.df, Region=="EUROPE")$index %>% max(.))
+  name.pos.vec <- c(round((0+vline.vec[1])/2, 0), 
+                    round((vline.vec[1]+vline.vec[2])/2, 0), 
+                    round((vline.vec[2]+vline.vec[3])/2, 0), 
+                    round((vline.vec[3]+length(unique(k.df$IID)))/2, 0))
+  name.df <- data.frame("Region"=reg.vec, "label.position"=name.pos.vec, 
+                        stringsAsFactors = F)
+  name.df$Region <- c("African", "East Asian", "European", "American")
+  # Create plot 
+  plt <- ggplot(data=k.df, aes(x=IID, y=Proportion)) + 
+    geom_bar(stat="identity", aes(fill=K, col=K)) +  
+    scale_fill_manual(values=cvec, name="Group") + 
+    scale_color_manual(values=cvec, name="Group") + 
+    theme(axis.text.x=element_blank(), 
+          axis.title.x = element_blank(), 
+          axis.ticks.x=element_blank(), 
+          panel.background = element_blank(), 
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(), 
+          strip.placement = "outside", 
+          legend.position ="none", 
+          strip.background = element_rect(fill="white"), 
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k) + 
+    geom_vline(xintercept = vline.vec, size=0.5) + 
+    coord_cartesian(expand = F)# + 
+  return(plt)
+}
+```
+
+
+
+
+```{r}
+k4.df <- create_plot_df(4)
+k4.plt <- ancestry_plot_unfaceted(k4.df)
+k5.df <- create_plot_df(5)
+k5.plt <- ancestry_plot_unfaceted(k5.df)
+k6.df <- create_plot_df(6)
+k6.plt <- ancestry_plot_unfaceted(k6.df)
+k7.df <- create_plot_df(7)
+k7.plt <- ancestry_plot_unfaceted(k7.df)
+k8.df <- create_plot_df(8)
+k8.plt <- ancestry_plot_unfaceted(k8.df)
+k9.df <- create_plot_df(9)
+k9.plt <- ancestry_plot_unfaceted(k9.df)
+k10.df <- create_plot_df(10)
+k10.plt <- ancestry_plot_unfaceted(k10.df)
+k11.df <- create_plot_df(11)
+k11.plt <- ancestry_plot_unfaceted(k11.df)
+k12.df <- create_plot_df(12)
+k12.plt <- ancestry_plot_unfaceted(k12.df)
+k13.df <- create_plot_df(13)
+k13.plt <- ancestry_plot_unfaceted(k13.df)
+k14.df <- create_plot_df(14)
+k14.plt <- ancestry_plot_unfaceted(k14.df)
+k15.df <- create_plot_df(15)
+k15.plt <- ancestry_plot_unfaceted(k15.df)
+k16.df <- create_plot_df(15)
+k16.plt <- ancestry_plot_unfaceted(k16.df)
+k17.df <- create_plot_df(17)
+k17.plt <- ancestry_plot_unfaceted(k17.df)
+k18.df <- create_plot_df(18)
+k18.plt <- ancestry_plot_unfaceted(k18.df)
+k19.df <- create_plot_df(19)
+k19.plt <- ancestry_plot_unfaceted(k19.df)
+k20.df <- create_plot_df(20)
+k20.plt <- ancestry_plot_unfaceted(k20.df)
+```
+
+## Save plots
+```{r}
+ggsave(x=k18.plt, filename=work.dir%&%
+  "output_files/plots/k-plot_18.png", 
+  height=5, width=14)
+```
+
+```{r}
+library(cowplot)
+multi.plt1 <- plot_grid(k4.plt, k5.plt, k6.plt, k7.plt, k8.plt, k9.plt, k10.plt, 
+                        k11.plt, k12.plt, k13.plt, nrow=10)
+multi.plt2 <- plot_grid(k14.plt, k15.plt, 
+          k16.plt, k17.plt, k18.plt, k19.plt, k20.plt, nrow=7)
+ggsave(x=multi.plt1, filename=work.dir%&%
+  "output_files/plots/multi-panel-TeraStructure_k4-10.png", 
+  height=10, width=16)
+ggsave(x=multi.plt2, filename=work.dir%&%
+  "output_files/plots/multi-panel-TeraStructure_k14-20.png", 
+  height=10, width=16)
+```
+
+
+## Region-level population plots 
+
+```{r}
+ancestry_plot_populations <- function(k.df, region){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  group.list <- evaluate_thetas(num.k)
+  grp.order <- c(group.list[[1]], group.list[[2]], group.list[[3]], 
+                 group.list[[4]])
+  k.df$K <- factor(k.df$K, levels=grp.order)
+  afr.num <- length(group.list[[1]])
+  eas.num <- length(group.list[[2]])
+  eur.num <- length(group.list[[3]])
+  amr.num <- length(group.list[[4]])
+  
+  afr.colors <- colorRampPalette(
+    brewer.pal(9, name="YlOrRd"))(90)[20:30]
+  afr.step.size <- round(length(afr.colors)/afr.num, 0)
+  afr.seq <- seq(1, length(afr.colors), afr.step.size)[1:afr.num]
+  afr.colors <- afr.colors[afr.seq]
+  
+  eas.colors <- colorRampPalette(
+    brewer.pal(9, name="Reds"))(90)[30:60]
+  eas.step.size <- round(length(eas.colors)/eas.num, 0)
+  eas.seq <- seq(1, length(eas.colors), eas.step.size)[1:eas.num]
+  eas.colors <- eas.colors[eas.seq]
+  
+  eur.colors <- colorRampPalette(
+    brewer.pal(9, name="Blues"))(90)[30:80]
+  eur.step.size <- round(length(eur.colors)/eur.num, 0)
+  eur.seq <- seq(1, length(eur.colors), eur.step.size)[1:eur.num]
+  eur.colors <- eur.colors[eur.seq]
+
+  amr.colors <- colorRampPalette(
+    brewer.pal(9, name="Greens"))(90)[30:80]
+  amr.step.size <- round(length(amr.colors)/amr.num, 0)
+  amr.seq <- seq(1, length(amr.colors), amr.step.size)[1:amr.num]
+  amr.colors <- amr.colors[amr.seq]
+  
+  cvec <- c(afr.colors, eas.colors, eur.colors, amr.colors)
+
+  samp.order <- group.list[[5]] 
+  k.df$IID <- factor(k.df$IID, levels=samp.order)
+  # Create plot 
+  plt <- ggplot(data=filter(k.df, Region==region), aes(x=IID, y=Proportion)) + 
+    geom_bar(stat="identity", aes(fill=K, col=K)) +  
+    scale_fill_manual(values=cvec, name="Group") + 
+    scale_color_manual(values=cvec, name="Group") + 
+    facet_wrap(~Population, scales="free_x", 
+               strip.position="bottom") + 
+    theme(axis.text.x=element_blank(), 
+          axis.title.x = element_blank(), 
+          axis.ticks.x=element_blank(), 
+          panel.background = element_blank(), 
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(), 
+          strip.placement = "outside", 
+          strip.background = element_rect(fill="white"), 
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k)
+  return(plt)
+}
+```
+
+```{r}
+k4.plt.afr <- ancestry_plot_populations(k4.df, "AFRICA")
+k4.plt.eas <- ancestry_plot_populations(k4.df, "EAST_ASIA")
+k4.plt.eur <- ancestry_plot_populations(k4.df, "EUROPE")
+k4.plt.amr <- ancestry_plot_populations(k4.df, "AMERICA")
+k18.plt.afr <- ancestry_plot_populations(k18.df, "AFRICA")
+k18.plt.eas <- ancestry_plot_populations(k18.df, "EAST_ASIA")
+k18.plt.eur <- ancestry_plot_populations(k18.df, "EUROPE")
+k18.plt.amr <- ancestry_plot_populations(k18.df, "AMERICA")
+```
+
+## Save plots
+```{r}
+ggsave(x=k4.plt.afr, filename=work.dir%&%
+  "output_files/plots/k-plot_k4-afr.png", 
+  height=10, width=10)
+ggsave(x=k4.plt.eas, filename=work.dir%&%
+  "output_files/plots/k-plot_k4-eas.png", 
+  height=10, width=10)
+ggsave(x=k4.plt.eur, filename=work.dir%&%
+  "output_files/plots/k-plot_k4-eur.png", 
+  height=10, width=10)
+ggsave(x=k4.plt.amr, filename=work.dir%&%
+  "output_files/plots/k-plot_k4-amr.png", 
+  height=10, width=10)
+
+ggsave(x=k18.plt.afr, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-afr.png", 
+  height=10, width=10)
+ggsave(x=k18.plt.eas, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-eas.png", 
+  height=10, width=10)
+ggsave(x=k18.plt.eur, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-eur.png", 
+  height=10, width=10)
+ggsave(x=k18.plt.amr, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-amr.png", 
+  height=10, width=10)
+```
+
+
+## Identity non-admixed individuals 
+
+```{r}
+filter_samples <- function(k, afr.grps, eas.grps, eur.grps, amr.grps, threshold){
+  theta.file <- work.dir%&%"output_files/"%&%tera.dir.pre1%&%
+    k%&%tera.dir.pre2%&%k%&%tera.dir.suf%&%"1"%&%"/theta.txt"
+  theta.df <- fread(theta.file, header=F)[, 1:k]
+  names(theta.df) <- "G" %&% 1:k # "G" short for "Group"
+  theta.df <- cbind(ref.df, theta.df)  
+  theta.df$afr.score <- dplyr::select(theta.df, one_of(afr.grps)) %>% 
+    rowSums(.)
+  theta.df$eas.score <- dplyr::select(theta.df, one_of(eas.grps)) %>% 
+    rowSums(.)
+  theta.df$eur.score <- dplyr::select(theta.df, one_of(eur.grps)) %>% 
+    rowSums(.)
+  theta.df$amr.score <- dplyr::select(theta.df, one_of(amr.grps)) %>% 
+    rowSums(.)
+  afr.samples <- filter(theta.df, afr.score>=threshold)$sample
+  eas.samples <- filter(theta.df, eas.score>=threshold)$sample
+  eur.samples <- filter(theta.df, eur.score>=threshold)$sample
+  amr.samples <- filter(theta.df, amr.score>=threshold)$sample
+  return(list(afr.samples, eas.samples, eur.samples, amr.samples, theta.df))
+}
+```
+
+
+Model: K=4 
+```{r}
+afr.grps <- c("G4")
+eas.grps <- c("G1")
+eur.grps <- c("G3")
+amr.grps <- c("G2")
+k4.filtered.list <- filter_samples(4, afr.grps, eas.grps, eur.grps, amr.grps, 0.9)
+k4.score.df <- k4.filtered.list[[5]]
+```
+
+Model: K=18 
+```{r}
+afr.grps <- c("G16", "G7", "G4")
+eas.grps <- c("G15", "G6")
+eur.grps <- c("G10", "G14", "G11")
+amr.grps <- c("G1", "G2", "G3", "G5", "G8", "G9", "G12", "G13", "G17", "G18")
+k18.filtered.list<-filter_samples(18, afr.grps, eas.grps, eur.grps, amr.grps, 0.9)
+k18.score.df <- k18.filtered.list[[5]]
+```
+
+```{r}
+join.df <- inner_join(k4.score.df, k18.score.df, by="sample")
+plt.afr <- ggplot(data=join.df, aes(x=afr.score.x, afr.score.y)) + 
+ geom_point() + theme_classic() + xlab("Ancestry Proportion (K4)") + 
+ ylab("Ancestry Proportion (K18)") + ggtitle("African Score", 
+ subtitle = "r="%&%(cor.test(join.df$afr.score.x, join.df$afr.score.y)$estimate))
+plt.eas <- ggplot(data=join.df, aes(x=eas.score.x, eas.score.y)) + 
+ geom_point() + theme_classic() + xlab("Ancestry Proportion (K4)") + 
+ ylab("Ancestry Proportion (K18)") + ggtitle("East Asian Score", 
+ subtitle = "r="%&%(cor.test(join.df$eas.score.x, join.df$eas.score.y)$estimate))
+plt.eur <- ggplot(data=join.df, aes(x=eas.score.x, eas.score.y)) + 
+ geom_point() + theme_classic() + xlab("Ancestry Proportion (K4)") + 
+ ylab("Ancestry Proportion (K18)") + ggtitle("European Score", 
+ subtitle = "r="%&%(cor.test(join.df$eur.score.x, join.df$eur.score.y)$estimate))
+plt.amr <- ggplot(data=join.df, aes(x=amr.score.x, amr.score.y)) + 
+ geom_point() + theme_classic() + xlab("Ancestry Proportion (K4)") + 
+ ylab("Ancestry Proportion (K18)") + ggtitle("American Score", 
+ subtitle = "r="%&%(cor.test(join.df$amr.score.x, join.df$amr.score.y)$estimate))
+score.plts <- plot_grid(plt.afr, plt.eas, plt.eur, plt.amr, nrow=2)
+```
+
+```{r}
+ggsave(x=score.plts, filename=work.dir%&%
+  "output_files/plots/evaluate-TS-ancestry-scores_k4vsk18.png", 
+  height=6, width=6)
+```
+
+```{r}
+reg.vec <- c("AFRICA", "EAST_ASIA", "EUROPE", "AMERICA")
+k4.count.vec <- c(length(k4.filtered.list[[1]]), 
+                  length(k4.filtered.list[[2]]), 
+                  length(k4.filtered.list[[3]]), 
+                  length(k4.filtered.list[[4]]))
+k18.count.vec <- c(length(k18.filtered.list[[1]]), 
+                  length(k18.filtered.list[[2]]), 
+                  length(k18.filtered.list[[3]]), 
+                  length(k18.filtered.list[[4]]))
+count.df <- data.frame("Region"=reg.vec, "counts.k4"=k4.count.vec, 
+    "counts.k18"=k18.count.vec)
+```
+
+
+Filtered AMR plot 
+
+```{r}
+ancestry_plot_filtered <- function(k.df, keep.samples, region){
+  num.k <- k.df$K %>% unique(.) %>% length(.)
+  cvec <- colorRampPalette(brewer.pal(9, name="Set1")[1:7])(num.k)#%>% rev()
+  plt <- ggplot(data=filter(k.df, IID%in%keep.samples, Region==region), 
+        aes(x=IID, y=Proportion)) + 
+    geom_bar(stat="identity", aes(fill=K, col=K)) +  
+    scale_fill_manual(values=cvec, name="Group") + 
+    scale_color_manual(values=cvec, name="Group") + 
+    facet_wrap(~Population, scales="free_x", 
+               strip.position="bottom") + 
+    theme(axis.text.x=element_blank(), 
+          axis.title.x = element_blank(), 
+          axis.ticks.x=element_blank(), 
+          panel.background = element_blank(), 
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(), 
+          strip.placement = "outside", 
+          strip.background = element_rect(fill="white"), 
+          strip.text = element_text(size=6)) + 
+    ggtitle("K="%&%num.k)
+  return(plt)
+}
+```
+
+Based on visual inspection, correlation, and assigned ancestry counts, will use ancestry assignments 
+based on K18 ancestry group. 
+
+```{r}
+plt.filt.k18.amr <- ancestry_plot_filtered(k18.df, k18.filtered.list[[4]], 
+                                           "AMERICA")
+plt.filt.k18.afr <- ancestry_plot_filtered(k18.df, k18.filtered.list[[1]], 
+                                           "AFRICA")
+plt.filt.k18.eur <- ancestry_plot_filtered(k18.df, k18.filtered.list[[3]], 
+                                           "EUROPE")
+```
+
+```{r}
+ggsave(x=plt.filt.k18.amr, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-amr-filtered-p90.png", 
+  height=10, width=10)
+ggsave(x=plt.filt.k18.afr, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-afr-filtered-p90.png", 
+  height=10, width=10)
+ggsave(x=plt.filt.k18.eur, filename=work.dir%&%
+  "output_files/plots/k-plot_k18-eur-filtered-p90.png", 
+  height=10, width=10)
+```
+
+##Extract sample names for three-way admixture and seven-way admixture 
+
+### Using ancestry proportion threshold of 0.90 
+
+AFR and EUR and AMR 
+```{r}
+afr.vec <- k18.filtered.list[[1]] 
+eur.vec <- k18.filtered.list[[3]] 
+amr.vec <- k18.filtered.list[[4]]  
+```
+
+Extract five MAIS regions based on Fst NJ-tree classification 
+```{r}
+nj.df <- fread(serv.dir%&%"shared/reference_datasets/" %&% 
+  "mais_information/mais-population-info_NJtree-regions.txt")
+south.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="South")$mais.population) %>% 
+  filter(., sample%in%amr.vec)
+se.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Southeast")$mais.population) %>% 
+  filter(., sample%in%amr.vec)
+nw.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Northwest")$mais.population) %>% 
+  filter(., sample%in%amr.vec)
+central.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Central")$mais.population) %>% 
+  filter(., sample%in%amr.vec)
+north.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="North")$mais.population) %>% 
+  filter(., sample%in%amr.vec)
+```
+
+```{r}
+write.table(x=afr.vec, file=work.dir%&%"output_files/samples-k18-p90-afr.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=eur.vec, file=work.dir%&%"output_files/samples-k18-p90-eur.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=amr.vec, file=work.dir%&%"output_files/samples-k18-p90-amr.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=south.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p90-amr-south.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=se.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p90-amr-southeastern.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=central.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p90-amr-central.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=nw.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p90-amr-northwestern.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=north.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p90-amr-north.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+```
+
+
+
+### Using ancestry proportion threshold of 0.99 
+
+K=18
+
+AFR and EUR and AMR 
+```{r}
+afr.grps <- c("G16", "G7", "G4")
+eas.grps <- c("G15", "G6")
+eur.grps <- c("G10", "G14", "G11")
+amr.grps <- c("G1", "G2", "G3", "G5", "G8", "G9", "G12", "G13", "G17", "G18")
+k18.filtered.list<-filter_samples(18, afr.grps, eas.grps, eur.grps, amr.grps, 0.99)
+k18.score.df <- k18.filtered.list[[5]]
+
+afr.vec <- k18.filtered.list[[1]] 
+eur.vec <- k18.filtered.list[[3]]  
+amr.vec <- k18.filtered.list[[4]]  
+```
+
+Extract five MAIS regions based on Fst NJ-tree classification 
+```{r}
+nj.df <- fread(serv.dir%&%"shared/reference_datasets/" %&% 
+  "mais_information/mais-population-info_NJtree-regions.txt")
+south.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="South")$mais.population) %>% 
+  filter(., sample%in%amr.vec) # 77 
+se.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Southeast")$mais.population) %>% 
+  filter(., sample%in%amr.vec) # 89
+nw.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Northwest")$mais.population) %>% 
+  filter(., sample%in%amr.vec) # 32
+central.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="Central")$mais.population) %>% 
+  filter(., sample%in%amr.vec) # 89
+north.df <- filter(pop.df, 
+ population%in%filter(nj.df, Region=="North")$mais.population) %>% 
+  filter(., sample%in%amr.vec) # 71 
+```
+
+Note: There are 358 Mexican Indigenous (including Pima) samples with native ancestry proportion >= 0.99; 
+this increases to a set of 616 Mexican indigenous samples with a threshold of >= 0.9.
+
+```{r}
+write.table(x=afr.vec, file=work.dir%&%"output_files/samples-k18-p99-afr.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=eur.vec, file=work.dir%&%"output_files/samples-k18-p99-eur.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=amr.vec, file=work.dir%&%"output_files/samples-k18-p99-amr.txt", 
+            sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=south.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p99-amr-south.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=se.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p99-amr-southeastern.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=central.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p99-amr-central.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=nw.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p99-amr-northwestern.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+write.table(x=north.df$sample, 
+      file=work.dir%&%"output_files/samples-k18-p99-amr-north.txt", 
+      sep="\t", quote=F, row.names=F, col.names=F)
+```

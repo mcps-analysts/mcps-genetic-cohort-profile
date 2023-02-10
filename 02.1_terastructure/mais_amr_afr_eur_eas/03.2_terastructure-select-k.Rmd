@@ -1,0 +1,80 @@
+---
+title: '03.2'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+serv.dir <- ""
+work.dir.serv <- serv.dir %&%
+  "popgen/02.1_terastructure/mais_amr_afr_eur_eas/"
+tera.dir.pre1 <- "n3274-k"
+tera.dir.pre2 <-"-l226827-select_k_"
+tera.dir.suf <- "_rep"
+```
+
+https://github.com/StoreyLab/terastructure/wiki/Advanced-Usage
+
+"Choosing K
+We run the algorithm over a range of K with multiple reps for each value of K. Then, we extract the final validation 
+likelihood for each run. Averaging over all reps, we choose the value of K where the validation likelihood plateaus."
+
+
+```{r}
+k.vec <- 4:20
+```
+
+```{r}
+build_validation_df <- function(k.vec){
+  out.df <- c()
+  for (k in k.vec){
+    val.vec <- c() 
+    for (i in 1:3){
+    df <- fread(work.dir.serv %&% "output_files/" %&% tera.dir.pre1 %&% 
+                  k %&% tera.dir.pre2 %&% 
+                  k %&% tera.dir.suf %&% i %&% "/validation.txt")
+    final.lkhd <- df$V3[length(df$V3)]
+    val.vec <- append(val.vec,final.lkhd)
+    }
+    build.df <- data.frame("K"=k,"avg.likelihood"=mean(val.vec),
+                           "sd.likelihood"=sd(val.vec),
+                           stringsAsFactors = F)
+    out.df <- rbind(out.df,build.df)
+  }
+  return(out.df)
+}
+```
+
+```{r}
+val.df <- build_validation_df(k.vec)
+```
+
+```{r}
+plt <- ggplot(data=val.df,
+              aes(x=K,y=avg.likelihood)) + 
+  geom_errorbar(aes(ymin=avg.likelihood-sd.likelihood,
+                    ymax=avg.likelihood+sd.likelihood)) + 
+  geom_line(col="black",size=2) + 
+  scale_x_continuous(breaks=k.vec) + 
+  theme_classic()
+```
+
+```{r}
+library(gridExtra)
+save.plt <- grid.arrange(plt,nrow=1)
+ggsave(plot=save.plt,filename = work.dir.serv %&% "output_files/select-k.png",
+       height=4,width=6)
+```
+
+
+After reviewing the average validation likelihood, it seems that K=18 would be the optimal number. 
+Note that k=11, 15, and 18 all corresponded to peaks. 
+
