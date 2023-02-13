@@ -1,13 +1,13 @@
 
 module load Python/3.7.4-GCCcore-8.3.0
-plink=shared/software/plink2/plink2
-plink1=shared/software/plink1/plink
+plink=./shared/software/plink2/plink2
+plink1=./shared/software/plink1/plink
 
 ### Create sub directories
-workdir=popgen/01_pca/public
+workdir=./popgen/01_pca/public
 
 datadir1=$workdir/merged
-datadir2=projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/qcd2
+datadir2=./projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/qcd2
 
 mkdir $workdir/merged_mcps
 mergedir=$workdir/merged_mcps

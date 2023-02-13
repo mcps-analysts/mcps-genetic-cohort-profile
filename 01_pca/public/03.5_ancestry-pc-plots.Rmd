@@ -15,7 +15,8 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 library("RColorBrewer")
-serv.dir <- ""
+
+serv.dir <- "./"
 work.dir <- serv.dir %&% "popgen/01_pca/public/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 pc.df <- fread(file.dir %&% "pc_projections_unrelateds_maf01.txt")

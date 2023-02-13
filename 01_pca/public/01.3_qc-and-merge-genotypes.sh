@@ -5,7 +5,7 @@ plink1=/apps/well/plink/1.07/plink
 
 
 ### Create sub directories
-workdir=popgen/pca/public
+workdir=./popgen/pca/public
 
 datadir1=$workdir/hgdp/geno_files
 datadir2=$workdir/1kgenomes/geno_files
