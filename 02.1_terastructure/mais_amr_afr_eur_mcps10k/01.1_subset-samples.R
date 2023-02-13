@@ -1,14 +1,14 @@
 ##module load R/3.6.2-foss-2019b
 "%&%" <- function(a,b) paste0(a,b)
-library("data.table");library("dplyr")
-base.dir <- "popgen/"
+library("data.table"); library("dplyr")
+base.dir <- "./popgen/"
 work.dir <- base.dir %&% "02.1_terastructure/" %&%
   "mais_amr_afr_eur_mcps10k/"
-ref.file <- "shared/reference_datasets/mais_information/" %&%
+ref.file <- "./shared/reference_datasets/mais_information/" %&%
   "reference-population-labels.txt"
-mcps.fam.file <- "popgen/01_pca/" %&%
+mcps.fam.file <- "./popgen/01_pca/" %&%
   "public_mais/mcps/geno_files/mcps.autosomes.fam"
-mcps10k.id.file <- "sharing/from_mike/" %&%
+mcps10k.id.file <- "./sharing/from_mike/" %&%
   "MT_MCPS10K_SVD_of_co-anc_matrix_FIDIID_PC1_PC2_cont_scores.txt"
 
 # Reference samples

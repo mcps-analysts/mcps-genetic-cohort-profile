@@ -1,9 +1,9 @@
 ## module load R/3.6.2-foss-2019b
 "%&%" <- function(a, b) paste0(a, b)
 library("data.table");library("dplyr")
-base.dir <- "popgen/"
+base.dir <- "./popgen/"
 work.dir <- base.dir %&% "02.1_terastructure/mais_amr_afr_eur_eas/"
-ref.file <- "shared/reference_datasets/mais_information/" %&%
+ref.file <- "./shared/reference_datasets/mais_information/" %&%
   "reference-population-labels.txt"
 
 # Reference samples

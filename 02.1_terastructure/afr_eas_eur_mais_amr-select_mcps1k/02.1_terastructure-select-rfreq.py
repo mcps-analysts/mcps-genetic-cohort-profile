@@ -8,12 +8,12 @@ python 02.1_terastructure-select-rfreq.py
 import sys,os
 import subprocess as sp
 
-work_dir = "popgen/02.1_terastructure/afr_eas_eur_mais_amr-select_mcps1k/"
-job_dir = work_dir+"jobs/"
-log_dir = work_dir+"logs/"
-out_dir = work_dir+"output_files/"
-terastructure="shared/software/terastructure/terastructure/package_bin/bin/terastructure"
-geno_dir = work_dir + "input_files/"
+work_dir = "./popgen/02.1_terastructure/afr_eas_eur_mais_amr-select_mcps1k/"
+job_dir = work_dir + "jobs/"
+log_dir = work_dir + "logs/"
+out_dir = work_dir + "output_files/"
+terastructure="./shared/software/terastructure/terastructure/package_bin/bin/terastructure"
+geno_dir = work_dir  +  "input_files/"
 geno_prefix = "subset-samples"
 nsnps = 199247 
 ninds = 3964
@@ -58,9 +58,9 @@ module load GSL/2.4-GCCcore-6.4.0
 -rfreq %s \
 -label %s \
 -force
-    ''' % (out_dir,job_name,log_dir+job_name,log_dir+job_name,
+    ''' % (out_dir,job_name,log_dir + job_name,log_dir + job_name,
     terastructure,geno_dir,geno_prefix,str(ninds),str(nsnps),
-    str(rfreq),"select_rfreq_"+name)
+    str(rfreq),"select_rfreq_" + name)
     fout = open(job_dir + job_name + ".sh",'w')
     fout.write(script)
     fout.close()

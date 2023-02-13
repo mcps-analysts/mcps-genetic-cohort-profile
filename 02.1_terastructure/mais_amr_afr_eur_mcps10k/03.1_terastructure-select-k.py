@@ -8,11 +8,11 @@ python 03.1_terastructure-select-k.py
 import sys,os
 import subprocess as sp
 
-work_dir = "popgen/02.1_terastructure/mais_amr_afr_eur_mcps10k/"
-job_dir = work_dir+"jobs/"
-log_dir = work_dir+"logs/"
-out_dir = work_dir+"output_files/"
-terastructure= "/well/emberson/shared/software/terastructure/terastructure/package_bin/bin/terastructure"
+work_dir = "./popgen/02.1_terastructure/mais_amr_afr_eur_mcps10k/"
+job_dir = work_dir + "jobs/"
+log_dir = work_dir + "logs/"
+out_dir = work_dir + "output_files/"
+terastructure= "./shared/software/terastructure/terastructure/package_bin/bin/terastructure"
 geno_dir = work_dir + "input_files/"
 geno_prefix = "subset-samples"
 nsnps = 199247 
@@ -55,9 +55,9 @@ module load GSL/2.4-GCCcore-6.4.0
 -rfreq %s \
 -label %s \
 -force
-    ''' % (out_dir,job_name,log_dir+job_name,log_dir+job_name,
+    ''' % (out_dir,job_name,log_dir + job_name,log_dir + job_name,
     terastructure,geno_dir,geno_prefix,str(ninds),str(nsnps),str(k),
-    str(rfreq),"select_k_"+str(k)+"_rep"+str(iter))
+    str(rfreq),"select_k_" + str(k) + "_rep" + str(iter))
     fout = open(job_dir + job_name + ".sh",'w')
     fout.write(script)
     fout.close()

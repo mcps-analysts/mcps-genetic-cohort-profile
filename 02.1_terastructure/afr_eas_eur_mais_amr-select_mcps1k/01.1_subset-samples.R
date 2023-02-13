@@ -1,16 +1,16 @@
 ##module load R/3.6.2-foss-2019b
 "%&%" <- function(a,b) paste0(a,b)
 library("data.table");library("dplyr")
-base.dir <- "popgen/"
+base.dir <- "./popgen/"
 work.dir <- base.dir %&% "02.1_terastructure/mais_analyses/" %&%
   "afr_eas_eur_mais_amr-select_mcps1k/"
-ref.file <- "shared/reference_datasets/mais_information/" %&%
+ref.file <- "./shared/reference_datasets/mais_information/" %&%
   "reference-population-labels.txt"
-mais.ref.df <- fread("shared/reference_datasets/" %&%
+mais.ref.df <- fread("./shared/reference_datasets/" %&%
         "mais_information/mais-population-info_NJtree-regions.txt")
-mcps.fam.file <- "popgen/01_pca/" %&%
-  "public_mais/mcps/geno_files/mcps.autosomes.fam"
-mcps10k.id.file <- "sharing/" %&%
+mcps.fam.file <- "./popgen/01_pca/" %&%
+  "./public_mais/mcps/geno_files/mcps.autosomes.fam"
+mcps10k.id.file <- "./sharing/" %&%
   "MT_MCPS10K_SVD_of_co-anc_matrix_FIDIID_PC1_PC2_cont_scores.txt"
 
 # Reference samples

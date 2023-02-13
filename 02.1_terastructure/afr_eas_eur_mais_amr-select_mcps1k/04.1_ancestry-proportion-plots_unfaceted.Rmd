@@ -13,11 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 "%&%" <- function(a,b) paste0(a,b)
 library("data.table")
 library("tidyverse")
-serv.dir <- ""
+serv.dir <- "./"
 base.dir <- serv.dir %&% "popgen/"
 work.dir <- serv.dir %&%
   "popgen/02.1_terastructure/afr_eas_eur_mais_amr-select_mcps1k/"
-pop.file <- serv.dir%&% "shared/reference_datasets/" %&%
+pop.file <- serv.dir %&% "shared/reference_datasets/" %&%
   "mais_information/reference-population-labels.txt"
 pop.df <- fread(pop.file)
 tera.dir.pre1 <- "n3964-k"

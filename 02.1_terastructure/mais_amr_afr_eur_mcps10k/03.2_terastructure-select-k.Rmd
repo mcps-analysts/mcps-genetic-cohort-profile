@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 "%&%" <- function(a,b) paste0(a,b)
 library("data.table")
 library("tidyverse")
-serv.dir <- ""
+serv.dir <- "./"
 work.dir.serv <- serv.dir %&% "popgen/02.1_terastructure/mais_amr_afr_eur_mcps10k/"
 tera.dir.pre1 <- "n11989-k"
 tera.dir.pre2 <- "-l199247-select_k_"
@@ -47,13 +47,10 @@ build_validation_df <- function(k.vec){
 ```
 
 ```{r}
-
 val.df <- build_validation_df(k.vec)
-
 ```
 
 ```{r}
-
 plt <- ggplot(data=val.df,
               aes(x=K,y=avg.likelihood)) + 
   geom_errorbar(aes(ymin=avg.likelihood-sd.likelihood,
@@ -61,9 +58,6 @@ plt <- ggplot(data=val.df,
   geom_line(col="black",size=2) + 
   scale_x_continuous(breaks=k.vec) + 
   theme_classic()
-
-
-
 ```
 
 ```{r}
