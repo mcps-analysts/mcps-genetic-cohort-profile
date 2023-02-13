@@ -1,6 +1,5 @@
 #!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
 #$ -N MT_IMPUTE5_MCPS_60K_chr2qii
 #$ -q long.qc
 #$ -pe shmem 44

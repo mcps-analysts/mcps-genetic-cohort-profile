@@ -1,6 +1,5 @@
 #!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
 #$ -N MT_IMPUTE5_MCPS_60K_chr2p
 #$ -q short.qc@@short.hga
 #$ -pe shmem 44

@@ -1,6 +1,5 @@
 #!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
 #$ -N MT_combining_60K_IMPUTE5_output_tranche1-4
 #$ -q long.qc
 #$ -pe shmem 24
@@ -15,6 +14,8 @@ echo "Username: "`whoami`
 echo "Started at:"`date`
 echo "-----------------------------------------"
 
+      ##Combine the matrices of nearest genetic neighbour lengths##
+
 data_dir=./pop_structure/data/IMPUTE5_Output/60K_analyses/Tranche"${SGE_TASK_ID}"
 code_dir=./pop_structure/code/IMPUTE5/60K_analyses
 
@@ -28,7 +29,7 @@ do
 	if [ -e $data_dir/output/MT_60K_Tranche"${SGE_TASK_ID}"_summed_co-anc_matrix.txt ]
 		then
 			mv $data_dir/output/MT_60K_Tranche"${SGE_TASK_ID}"_summed_co-anc_matrix.txt $data_dir/holding/MT_60K_Tranche"${SGE_TASK_ID}"_summed_co-anc_matrix.txt
-			python $code_dir/Combining_60K_co-ancestry_matrices_step2.py $file ${SGE_TASK_ID}
+			python $code_dir/00.2_Combining_60K_co-ancestry_matrices_step2.py $file ${SGE_TASK_ID}
 			rm $data_dir/holding/*
 		else
 			cp $file $data_dir/output/MT_60K_Tranche"${SGE_TASK_ID}"_summed_co-anc_matrix.txt

@@ -1,7 +1,6 @@
 #!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
-#$ -N MT_unzipping_condening_60K_IMPUTE5_output_tranche1-4
+#$ -N MT_unzipping_condensing_60K_IMPUTE5_output_tranche1-4
 #$ -q himem.qh
 #$ -pe shmem 12
 #$ -t 1-4:1
@@ -15,6 +14,9 @@ echo "Username: "`whoami`
 echo "Started at:"`date`
 echo "-----------------------------------------"
 
+      ##Unzip and the condense per-haplotype nearest genetic neighbour matrices##
+      ##into per-individidual nearest genetic neighbour matrices               ##
+
 data_dir=./pop_structure/data/IMPUTE5_Output/60K_analyses
 code_dir=./pop_structure/code/IMPUTE5/60K_analyses
 
@@ -25,6 +27,6 @@ for file in $data_dir/Tranche"${SGE_TASK_ID}"/Shared_genome_matrices/MT*.shared.
 
 do
 	gunzip -cd $file > $data_dir/Tranche"${SGE_TASK_ID}"/Unzipped_genome_matrices/$(basename "$file" .shared.gz).sharedlength
-	python $code_dir/Combining_60K_co-ancestry_matrices_step1.py $data_dir/Tranche"${SGE_TASK_ID}"/Unzipped_genome_matrices/$(basename "$file" .shared.gz).sharedlength ${SGE_TASK_ID}
+	python $code_dir/00.1_Combining_60K_co-ancestry_matrices_step1.py $data_dir/Tranche"${SGE_TASK_ID}"/Unzipped_genome_matrices/$(basename "$file" .shared.gz).sharedlength ${SGE_TASK_ID}
 
 done 

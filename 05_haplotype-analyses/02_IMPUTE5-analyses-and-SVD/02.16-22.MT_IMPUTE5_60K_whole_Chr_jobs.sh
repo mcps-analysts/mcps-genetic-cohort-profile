@@ -1,6 +1,5 @@
 #!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
 #$ -N MT_IMPUTE5_MCPS_60K_whole_Chr_jobs
 #$ -q short.qc@@short.hga
 #$ -pe shmem 40
