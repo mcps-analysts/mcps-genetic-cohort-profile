@@ -137,7 +137,7 @@ rm(svd.obj1)
 
 ```{r}
 root.dir <- "" %&%
-  "popgen/01_pca/public_mais/imputed-topmed/"
+  "popgen/01_pca/public_mais/"
 plink.dir <- root.dir %&% "merged_mcps/"
 plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
 bed.file <- plink.dir %&% plink.pre %&% ".bed"
