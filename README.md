@@ -21,14 +21,16 @@ This repository hosts code scripts used for performing population structure and 
   - **mcps_only**: Reference genotypes correspond to 58,051 unrelated MCPS particpants. All remaining MCPS participants, and samples from the 1KG, HGDP and MAIS studies were projected into the PC space defined by the model. Sub-directories within **mcps_only** correspond to analyses conducted with clumping LD r2 thresholds of 0.20, 0.01, and 0.005, respectively.    
   
 ### 02.1_terastructure
-Sub-directories within 01_pca directory corresponded to separate analyses: 
+Sub-directories within 02.1_terastructure directory corresponded to separate analyses: 
 - **mais_amr_afr_eur_eas**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. 
 - **afr_eas_eur_mais_amr-select_mcps1k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 1,000 unrelated MCPS participants were also included as reference samples in the analysis. 
 - **mais_amr_afr_eur_mcps10k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 10,000 unrelated MCPS participants were also included as reference samples in the analysis. 
 
  ### 02.2_admixture
- 
+Scripts within this directory correspond to analysis with reference samples of AFR, EAS, EUR, and AMR ancestry from the 1KG and HGDP studies, AMR samples from Mexico (MAIS study), and a random set 1,000 unrelated MCPS participants. The remaining set of MCPS participants were projected using the estimated model parameters (i.e. ancestry-specific allele frequencies) in order to estimate ancestry proportion values. Projection was performed using model with four underlying ancestries (i.e. K=4) and the model that attained the lowest cross-validation error (i.e. K=18). 
+
  ### 03_phasing
+ The script in this folder contains arguments used to phase genotypes of non-MCPS samples, from which reference samples were selected for LAI analyses described in **04_rfmix** folder. 
  
  ### 04_rfmix
  
