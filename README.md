@@ -14,6 +14,9 @@ This repository hosts code scripts used for performing population structure and 
 
  ## Descripton of directory structure and analyses 
  ---------------------------------------------------------------------------
+ 
+**Note**: The numerical prefix in the names of scripts within each sub-directory indicates the order in which the scripts were run in the workflow (e.g. 01.1 script was run before 01.2 script, and 01.2 script was run before 02.1 script, etc). Scripts with the prefix "00_" were support scripts that were called within scripts with prefix values starting from "01".
+ 
  ### 01_pca 
  Sub-directories within 01_pca directory corresponded to separate analyses: 
  - **public**: Reference genotypes correspond to publicly-available samples from the [1000 Genomes Project (1KG)](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20201028_3202_phased/) and [Human Genome Diversity Panel (HGDP)](https://doi.org/10.1126/science.aay5012) that have been whole-genome sequenced. The PCA model was based on 1KG, HGDP and 500 unrelated MCPS samples. Remaining MCPS samples were projected into the PC space defined by the model. 
