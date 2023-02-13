@@ -15,12 +15,12 @@ echo "------------------------------------------------"
 
 module load BCFtools/1.10.2-GCC-8.3.0
 module load SHAPEIT4/4.1.3-foss-2019b
-PLINK2=shared/software/plink2/plink2
+PLINK2=./shared/software/plink2/plink2
 TABIX=/apps/well/tabix/0.2.6/tabix
 
-WORKDIR=popgen/04_rfmix/including_mais_samples/00_chromosomeX/
+WORKDIR=./popgen/04_rfmix/including_mais_samples/00_chromosomeX/
 OUTDIR=$WORKDIR/merged_mais-hgdp-1kg
-GMAPDIR=popgen/03_phasing/gmap_files
+GMAPDIR=./popgen/03_phasing/gmap_files
 
 mv $OUTDIR/merged_mais_rsq90.merge.merged_hgdp-1kg_chrX.bim \
  $OUTDIR/merged_reference_mais-rsq90.bim

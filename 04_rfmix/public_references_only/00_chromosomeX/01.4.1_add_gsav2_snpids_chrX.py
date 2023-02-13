@@ -8,9 +8,9 @@ python 01.4.1_script.py
 # libraries
 import sys, os
 
-work_dir = "popgen/04_rfmix/public_references_only/00_chromosomeX/"
+work_dir = "./popgen/04_rfmix/public_references_only/00_chromosomeX/"
 
-study_dir =  "data/GSAv2_CHIP/pVCF/"
+study_dir =  "./data/GSAv2_CHIP/pVCF/"
 study_name = "MCPS_Freeze_150.GT_hg38.pVCF"
 
 ref_dir = work_dir + "merged/"

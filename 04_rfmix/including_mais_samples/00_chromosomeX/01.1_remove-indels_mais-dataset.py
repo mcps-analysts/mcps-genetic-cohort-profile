@@ -1,18 +1,17 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
-
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 01.1_remove-indels.py
-
 '''
 # libraries
 import sys, os
 from shutil import copyfile
 import subprocess as sp
 
-work_dir = "popgen/04_rfmix/including_mais_samples/00_chromosomeX/"
-plink2 = "shared/software/plink2/plink2"
+work_dir = "./popgen/04_rfmix/including_mais_samples/00_chromosomeX/"
+plink2 = "./shared/software/plink2/plink2"
 
 study_dir1 = work_dir + "main_affy/geno_files/"
 study_dir2 = work_dir + "main_omni/geno_files/"

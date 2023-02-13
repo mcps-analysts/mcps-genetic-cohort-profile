@@ -1,7 +1,7 @@
 # module load R/3.6.2-foss-2019b
 "%&%" <- function(a, b) paste0(a, b)
 library("data.table"); library("tidyverse")
-work.dir <- "popgen/04_rfmix/public_references_only/00_chromosomeX/"
+work.dir <- "./"
 out.dir <- work.dir %&% "merged_mcps/"
 
 file1 <- out.dir %&%

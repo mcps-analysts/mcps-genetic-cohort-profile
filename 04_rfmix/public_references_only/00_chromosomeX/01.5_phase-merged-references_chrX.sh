@@ -15,7 +15,7 @@ echo "------------------------------------------------"
 
 module load BCFtools/1.10.2-GCC-8.3.0
 module load SHAPEIT4/4.1.3-foss-2019b
-PLINK2=shared/software/plink2/plink2
+PLINK2=./shared/software/plink2/plink2
 TABIX=/apps/well/tabix/0.2.6/tabix
 
 WORKDIR=popgen/sex_chromosomes

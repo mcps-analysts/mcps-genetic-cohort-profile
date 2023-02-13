@@ -1,6 +1,7 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 source python/projectA-ivybridge/bin/activate
 python 04.1_collapse-individual-rfmix-info.py
@@ -12,7 +13,7 @@ import re
 import numpy as np
 import pandas as pd
 
-work_dir = "popgen/04_rfmix/" + \
+work_dir = "./popgen/04_rfmix/" + \
     "including_mais_samples//seven_way/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"

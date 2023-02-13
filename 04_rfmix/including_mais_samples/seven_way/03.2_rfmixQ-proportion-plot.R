@@ -2,16 +2,16 @@
 "%&%" <- function(a, b) paste0(a, b)
 library("data.table")
 library("tidyverse")
-serv.dir <- "/well/emberson/"
+serv.dir <- "./"
 work.dir.serv <- serv.dir %&%
   "popgen/04_rfmix/" %&%
   "including_mais_samples/seven_way/"
 input.dir <- work.dir.serv %&% "input_files/"
 output.dir <- work.dir.serv %&% "output_files/"
-pop.file <- serv.dir%&% "shared/reference_datasets/" %&%
+pop.file <- serv.dir %&% "shared/reference_datasets/" %&%
   "mais_information/reference-population-labels.txt"
 
-mais.ref.df <- fread(serv.dir%&% "shared/reference_datasets/" %&%
+mais.ref.df <- fread(serv.dir %&% "shared/reference_datasets/" %&%
         "mais_information/mais-population-info_NJtree-regions.txt")
 
 rgnkey.dir <- serv.dir %&%

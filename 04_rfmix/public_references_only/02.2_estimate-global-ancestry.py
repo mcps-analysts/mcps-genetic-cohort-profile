@@ -11,7 +11,7 @@ import sys, os
 import subprocess as sp
 import numpy as np
 
-work_dir = "popgen/04_rfmix/public_references_only/"
+work_dir = "./popgen/04_rfmix/public_references_only/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"
 in_dir = work_dir + "input_files/"

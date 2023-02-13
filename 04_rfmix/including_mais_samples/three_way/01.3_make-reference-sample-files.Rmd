@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 "%&%" <- function(a,b) paste0(a,b)
 library("data.table")
 library("tidyverse")
-serv.dir <- ""
+serv.dir <- "./"
 work.dir.serv <- serv.dir %&% 
   "popgen/04_rfmix/including_mais_samples/three_way/"
 input.dir <- work.dir.serv %&% "input_files/"

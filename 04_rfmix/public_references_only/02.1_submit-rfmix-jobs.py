@@ -10,8 +10,8 @@ import sys,os
 import subprocess as sp
 
 vcftools = "/apps/well/vcftools/0.1.14-gcc4.7.2/bin/vcftools"
-rfmix = "shared/software/rfmix/rfmix"
-work_dir = "popgen/04_rfmix/public_references_only/"
+rfmix = "./shared/software/rfmix/rfmix"
+work_dir = "./popgen/04_rfmix/public_references_only/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"
 in_dir = work_dir + "input_files/"

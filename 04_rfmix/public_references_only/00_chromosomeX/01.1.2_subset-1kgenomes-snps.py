@@ -1,10 +1,9 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
-
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 01.1.2_subset-1kgenomes-snps.py
-
 '''
 # libraries
 import sys, os, gzip
@@ -12,16 +11,16 @@ from time import sleep
 import subprocess as sp
 import pandas as pd
 
-ref_dir =  "shared/reference_datasets/1000_genomes/build_38_highcoverage/"
+ref_dir =  "./shared/reference_datasets/1000_genomes/build_38_highcoverage/"
 metadata_file = ref_dir + "20130606_g1k_3202_samples_ped_population.txt"
-pvcf_dir = "data/GSAv2_CHIP/pVCF/"
+pvcf_dir = "./data/GSAv2_CHIP/pVCF/"
 bim_file = pvcf_dir + "MCPS_Freeze_100.GT_hg38.pVCF.bim"
-work_dir = "popgen/04_rfmix/public_references_only/00_chromosomeX/"
+work_dir = "./popgen/04_rfmix/public_references_only/00_chromosomeX/"
 job_dir = work_dir + "1kgenomes/jobs/"
 log_dir = work_dir + "1kgenomes/logs/"
 out_dir = work_dir + "1kgenomes/geno_files/"
-bcftools = "shared/software/bcftools/bcftools/bcftools"
-plink2 = "shared/software/plink2/plink2"
+bcftools = "./shared/software/bcftools/bcftools/bcftools"
+plink2 = "./shared/software/plink2/plink2"
 
 def create_sample_keep_file():
     df = pd.read_csv(metadata_file, sep=" ", header=0)

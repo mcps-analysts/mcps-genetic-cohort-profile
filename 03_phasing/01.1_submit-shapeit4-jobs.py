@@ -1,6 +1,7 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 01.1_submit-shapeit4-jobs.py
 '''
@@ -8,13 +9,13 @@ python 01.1_submit-shapeit4-jobs.py
 import sys,os
 import subprocess as sp
 
-work_dir = "popgen/03_phasing/"
+work_dir = "./popgen/03_phasing/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir +"logs/"
 in_dir = work_dir + "input_files/"
 out_dir = work_dir + "output_files/"
 plink2="/apps/well/plink/2.00a-20170724/plink2"
-geno_dir = "popgen/01_pca/public_mais/merged_mais-hgdp-1kg/"
+geno_dir = "./popgen/01_pca/public_mais/merged_mais-hgdp-1kg/"
 geno_prefix = "merged_reference_rsq90" 
 gmap_dir = work_dir  +  "gmap_files/"
 
@@ -23,7 +24,6 @@ def submit_shapeit4_job(chromo,shmem):
     job_name = "chr" + str(chromo)  +  "_shapeit4"
     script = '''#!/bin/bash
 #$ -cwd
-#$ -P emberson.prjc
 #$ -N %s
 #$ -q short.qc
 #$ -o %s.out

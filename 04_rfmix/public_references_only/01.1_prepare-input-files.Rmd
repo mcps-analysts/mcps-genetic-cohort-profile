@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 "%&%" <- function(a, b) paste0(a, b)
 library("data.table")
 library("tidyverse")
-serv.dir <- ""
+serv.dir <- "./"
 work.dir.serv <- serv.dir %&% 
   "popgen/04_rfmix/public_references_only/"
 input.dir <- work.dir.serv %&% "input_files/"
@@ -22,10 +22,10 @@ output.dir <- work.dir.serv %&% "output_files/"
 
 First need to extract sample ids from a vcf file 
 ```{bash}
-cd popgen/03_phasing/output_files
+cd ./popgen/03_phasing/output_files
 module load BCFtools/1.10.2-GCC-8.3.0
 bcftools query -l merged_mcps-hgdp-1kg_chr22_phased.vcf > ../../04_rfmix/public_references_only/input_files/sample-ids.txt
-cd popgen/04_rfmix
+cd ./popgen/04_rfmix
 ```
 
 ```{r}

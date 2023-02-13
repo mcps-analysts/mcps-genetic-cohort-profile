@@ -1,6 +1,7 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 source python/projectA-ivybridge/bin/activate
 python 02.3_estimate-global-ancestry.py
@@ -11,7 +12,7 @@ import subprocess as sp
 import numpy as np
 
 
-work_dir = "popgen/04_rfmix/including_mais_samples/three_way/"
+work_dir = "./popgen/04_rfmix/including_mais_samples/three_way/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"
 in_dir = work_dir + "input_files/"

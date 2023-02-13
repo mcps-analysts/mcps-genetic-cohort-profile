@@ -1,10 +1,10 @@
 
 module load Python/3.7.4-GCCcore-8.3.0
-plink=shared/software/plink2/plink2
-plink1=shared/software/plink1/plink
+plink=./shared/software/plink2/plink2
+plink1=./shared/software/plink1/plink
 
 ### Create sub directories
-workdir=popgen/04_rfmix/including_mais_samples/00_chromosomeX/
+workdir=./opgen/04_rfmix/including_mais_samples/00_chromosomeX/
 
 datadir1=$workdir/mais_affy/geno_files
 datadir2=$workdir/mais_omni/geno_files

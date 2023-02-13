@@ -13,7 +13,7 @@ import re
 import numpy as np
 import pandas as pd
 
-work_dir = "popgen/04_rfmix/public_references_only/"
+work_dir = "./popgen/04_rfmix/public_references_only/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"
 

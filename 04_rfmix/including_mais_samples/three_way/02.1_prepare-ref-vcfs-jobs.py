@@ -1,6 +1,7 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 02.1_prepare-ref-vcfs-jobs.py
 '''
@@ -9,17 +10,17 @@ import sys,os
 import subprocess as sp
 
 vcftools="/apps/well/vcftools/0.1.14-gcc4.7.2/bin/vcftools"
-rfmix= "shared/software/rfmix/rfmix"
-work_dir = "popgen/04_rfmix/"
+rfmix= "./shared/software/rfmix/rfmix"
+work_dir = "./popgen/04_rfmix/"
 work_dir = work_dir + "including_mais_samples/three_way/"
 job_dir = work_dir + "jobs/"
 log_dir = work_dir + "logs/"
 in_dir = work_dir + "input_files/"
 out_dir = work_dir + "output_files/"
 gmap_dir = work_dir + "gmap_files/"
-phase_dir = "popgen/03_phasing/"
+phase_dir = "./popgen/03_phasing/"
 vcf_dir = phase_dir + "output_files/"
-vcf_pre ="merged_reference_rsq90_chr"
+vcf_pre = "merged_reference_rsq90_chr"
 vcf_post = "_phased.vcf"
 samp_file = in_dir + "mcps-samples.txt"
 ref_file = in_dir + "ref-samples.txt"

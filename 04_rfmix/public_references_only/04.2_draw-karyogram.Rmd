@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library("data.table")
 library("tidyverse")
 library("viridis")
-serv.dir <- ""
+serv.dir <- "./"
 work.dir <- serv.dir %&% 
   "popgen/04_rfmix/public_references_only/"
 input.dir <- work.dir %&% "output_files/collapsed_info/"

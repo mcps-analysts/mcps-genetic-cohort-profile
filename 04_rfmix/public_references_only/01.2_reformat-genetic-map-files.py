@@ -9,8 +9,8 @@ python 02.1_reformat-genetic-map-files.py
 import sys,os,gzip
 import subprocess as sp
 
-work_dir = "popgen/04_rfmix/"
-phase_dir = "popgen/03_phasing/"
+work_dir = "./popgen/04_rfmix/"
+phase_dir = "./popgen/03_phasing/"
 gmap_dir = phase_dir + "gmap_files/"
 out_dir = work_dir + "gmap_files/"
 

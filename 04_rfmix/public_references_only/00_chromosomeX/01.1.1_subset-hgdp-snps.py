@@ -1,6 +1,7 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
+Usage:
 source python/projectA-ivybridge/bin/activate
 module load Python/3.7.4-GCCcore-8.3.0
 python 01.1.1_subset-hgdp-snps.py
@@ -11,16 +12,16 @@ from time import sleep
 import subprocess as sp
 import pandas as pd
 
-ref_dir =  "shared/reference_datasets/hgdp_sanger/"
+ref_dir =  "./shared/reference_datasets/hgdp_sanger/"
 metadata_file = ref_dir + "hgdp_wgs.20190516.metadata.txt"
 pvcf_dir = "data/GSAv2_CHIP/pVCF/"
 bim_file = pvcf_dir + "MCPS_Freeze_100.GT_hg38.pVCF.bim"
-work_dir = "popgen/04_rfmix/public_references_only/00_chromosomeX/"
+work_dir = "./popgen/04_rfmix/public_references_only/00_chromosomeX/"
 job_dir = work_dir + "hgdp/jobs/"
 log_dir = work_dir + "hgdp/logs/"
 out_dir = work_dir + "hgdp/geno_files/"
-bcftools = "shared/software/bcftools/bcftools/bcftools"
-plink2 = "shared/software/plink2/plink2"
+bcftools = "./shared/software/bcftools/bcftools/bcftools"
+plink2 = "./shared/software/plink2/plink2"
 
 def create_sample_keep_file():
     df = pd.read_csv(metadata_file,sep="\t",header=0)

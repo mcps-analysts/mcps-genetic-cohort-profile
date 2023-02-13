@@ -1,10 +1,10 @@
-PLINK1=shared/software/plink1/plink
-PLINK2=shared/software/plink2/plink2
+PLINK1=./shared/software/plink1/plink
+PLINK2=./shared/software/plink2/plink2
 TABIX=/apps/well/tabix/0.2.6/tabix
-BCFTOOLS=shared/software/bcftools/bcftools/bcftools
+BCFTOOLS=./shared/software/bcftools/bcftools/bcftools
 
-INDIR=popgen/04_rfmix/public_references_only/00_chromosomeX/merged_mcps
-OUTDIR=popgen/04_rfmix/public_references_only/00_chromosomeX/merged_mcps
+INDIR=./popgen/04_rfmix/public_references_only/00_chromosomeX/merged_mcps
+OUTDIR=./popgen/04_rfmix/public_references_only/00_chromosomeX/merged_mcps
 
 ### Chromosome X
 name1='merged_hgdp-1kg_chrX'

@@ -1,18 +1,17 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
-
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 01.2_sync-snpids.py
-
 '''
 # libraries
 import sys,os
 from shutil import copyfile
 import subprocess as sp
 
-work_dir = "popgen/04_rfmix/public_references_only/00_chromosomeX/"
-plink2 = "shared/software/plink2/plink2"
+work_dir = "./popgen/04_rfmix/public_references_only/00_chromosomeX/"
+plink2 = "./shared/software/plink2/plink2"
 
 def sync_snps(study_dir,chrom,study_name):
     sys.stdout.write("\nRunning dataset: %s\n" % study_name)

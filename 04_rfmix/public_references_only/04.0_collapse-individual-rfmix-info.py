@@ -13,7 +13,7 @@ import re
 import numpy as np
 import pandas as pd
 
-work_dir = "popgen/04_rfmix/public_references_only/"
+work_dir = "./popgen/04_rfmix/public_references_only/"
 out_dir = work_dir + "output_files/collapsed_info/"
 pop_list = ["AFRICA", "AMERICA", "EUROPE"]
 prob_thresh = 0.9
