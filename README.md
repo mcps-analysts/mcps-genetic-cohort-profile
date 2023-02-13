@@ -20,8 +20,12 @@ This repository hosts code scripts used for performing population structure and 
   - **public_mais**: Reference genotypes correspond to publicly-available samples from 1KG and HGDP studies, and participants of Indigenous American ancestry from Mexico within the [Metabolic Analysis of an Indigenous Samples (MAIS) study](https://www.nature.com/articles/s41467-021-26188-w). The PCA model was based on 1KG, HGDP, MAIS and 500 unrelated MCPS samples. Remaining MCPS samples were projected into the PC space defined by the model. Note: the **mais_yri_ibs** sub-directory contains scripts for analysis were reference samples were limited to Indigenous American samples from Mexico (MAIS study), Iberian Europeans from Spain (IBS) and Yoruba from Nigeria (YRI).  
   - **mcps_only**: Reference genotypes correspond to 58,051 unrelated MCPS particpants. All remaining MCPS participants, and samples from the 1KG, HGDP and MAIS studies were projected into the PC space defined by the model. Sub-directories within **mcps_only** correspond to analyses conducted with clumping LD r2 thresholds of 0.20, 0.01, and 0.005, respectively.    
   
- ### 02.1_terastructure
- 
+### 02.1_terastructure
+Sub-directories within 01_pca directory corresponded to separate analyses: 
+- **mais_amr_afr_eur_eas**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. 
+- **afr_eas_eur_mais_amr-select_mcps1k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 1,000 unrelated MCPS participants were also included as reference samples in the analysis. 
+- **mais_amr_afr_eur_mcps10k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 10,000 unrelated MCPS participants were also included as reference samples in the analysis. 
+
  ### 02.2_admixture
  
  ### 03_phasing
