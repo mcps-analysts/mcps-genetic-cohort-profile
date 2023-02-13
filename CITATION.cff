@@ -4,8 +4,8 @@ authors:
 - family-names: "Torres"
   given-names: "Jason"
   orcid: "https://orcid.org/0000-0002-7537-7035"
-- family-names: "Bot"
-  given-names: "Hew"
+- family-names: "Turner"
+  given-names: "Michael"
   orcid: "https://orcid.org/0000-0002-0351-4053"
 title: "Coding scripts for population structure and ancestry analyses described in MCPS genetic cohort profile."
 version: v0.1.0-alpha
