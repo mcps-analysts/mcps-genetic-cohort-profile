@@ -1,4 +1,5 @@
 # mcps-genetic-cohort-profile
+[![DOI](https://zenodo.org/badge/598123861.svg)](https://zenodo.org/badge/latestdoi/598123861)
 
 This repository hosts code scripts used for performing population structure and ancestry analyses described in [Ziyatdinov, Torres and Alegre-Díaz et al. 2022](https://doi.org/10.1101/2022.06.26.495014). 
 
