@@ -21,17 +21,29 @@ This repository hosts code scripts used for performing population structure and 
   - **mcps_only**: Reference genotypes correspond to 58,051 unrelated MCPS particpants. All remaining MCPS participants, and samples from the 1KG, HGDP and MAIS studies were projected into the PC space defined by the model. Sub-directories within **mcps_only** correspond to analyses conducted with clumping LD r2 thresholds of 0.20, 0.01, and 0.005, respectively.    
   
 ### 02.1_terastructure
-Sub-directories within 01_pca directory corresponded to separate analyses: 
+Sub-directories within 02.1_terastructure directory corresponded to separate analyses: 
 - **mais_amr_afr_eur_eas**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. 
 - **afr_eas_eur_mais_amr-select_mcps1k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 1,000 unrelated MCPS participants were also included as reference samples in the analysis. 
 - **mais_amr_afr_eur_mcps10k**: Reference samples included individuals of African (AFR), East Asian (EAS), European (EUR), and American (AMR) ancestry from the 1KG and HGDP studies, and AMR samples from Mexico from the MAIS study. A random set of 10,000 unrelated MCPS participants were also included as reference samples in the analysis. 
 
- ### 02.2_admixture
- 
- ### 03_phasing
+### 02.2_admixture
+Scripts within this directory correspond to analysis with reference samples of AFR, EAS, EUR, and AMR ancestry from the 1KG and HGDP studies, AMR samples from Mexico (MAIS study), and a random set 1,000 unrelated MCPS participants. The remaining set of MCPS participants were projected using the estimated model parameters (i.e. ancestry-specific allele frequencies) in order to estimate ancestry proportion values. Projection was performed using model with four underlying ancestries (i.e. K=4) and the model that attained the lowest cross-validation error (i.e. K=18). 
+
+### 03_phasing
+The script in this folder contains arguments used to phase genotypes of non-MCPS samples, from which reference samples were selected for LAI analyses described in **04_rfmix** folder. 
  
  ### 04_rfmix
+ The sub-directories in this folder correspond to two sets of analyses:
+ - **public_references_only**: This folder contains scripts for running a three-way admixture model with RFMix to resolve local ancestry segments within reference samples and MCPS participants. Reference samples included publicly-available genotypes from samples of EUR, AFR, and AMR ancestries within the 1KG and HGDP studies. 
+    - **Note**: The **00_chromosomeX** sub-directory includes scripts used for merging chromosome X genotypes across datasets.  
+ - **including_mais_samples**: This folder contains scripts for running RFMix to resolve local ancestry segments within reference samples and MCPS participants. Reference samples included publicly-available genotypes from samples of EUR, AFR, and AMR ancestries within the 1KG and HGDP studies, and participants of Indigenous American ancestry from Mexico from the MAIS study. 
+    - **three_way**: This folder contains scripts for running a three-way admixture model that includes EUR, AFR, and AMR ancestries. 
+    - **seven_way**: This folder contains scripts for running a seven-way admixture model that includes EUR, AFR, and AMR ancestries. The AMR reference samples corresponded to the MAIS study and were grouped into five 'regions' within Mexico (North, Nortwest, Central, South, Southeast) previously delineated in [García-Ortiz et al. *Nat. Commun.* 2021](https://www.nature.com/articles/s41467-021-26188-w).
+    - **Note**: The **00_chromosomeX** sub-directory includes scripts used for merging chromosome X genotypes across datasets. 
  
- ### 05_haplotype-analyses
+### 05_haplotype-analyses
+- **01_Making-input-files**: This folder contains scripts used to create appropriately-formatted vcf files as input for IMPUTE5. Only non-ambiguous variants with minor allele frequency >1% and participants in the same 58K used in the **mcps_only** analyses from the **01_pca** folder were selected.
+- **02_IMPUTE5-analyses-and-SVD**: This folder contains scripts used to run IMPUTE 5 on all the autosomes with chromosomes 1-15 split at the centromere to make the analysis more computationally tractable. Per-haplotype matrices were then condensed into per-individual matrices. These matrices for each chromosome are then summed to create one matrix for the whole genome. Finally, SVD was run on the matrix.
+- **03_Plotting**: This folder contains the script used to create the plots in supplementary figure 13. It takes the SVD output and the output from the seven-way RFMix analyses within folder **04_rfmix**.
  
  
