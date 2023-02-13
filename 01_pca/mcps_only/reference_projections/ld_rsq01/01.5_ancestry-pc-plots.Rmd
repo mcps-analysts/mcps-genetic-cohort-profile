@@ -15,7 +15,7 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 library("RColorBrewer")
-serv.dir0 <- ""
+serv.dir0 <- "./"
 serv.dir <- serv.dir0 %&% ""
 work.dir0 <- serv.dir %&% "popgen/01_pca/public_mais/04_mais_rsq90/"
 work.dir <- serv.dir %&% "popgen/01_pca/mcps_only/" %&%

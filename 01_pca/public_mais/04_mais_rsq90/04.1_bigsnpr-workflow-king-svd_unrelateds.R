@@ -6,7 +6,7 @@ library("tidyverse")
 library("bigsnpr")
 set.seed(1)
 
-serv.dir <- ""
+serv.dir <- "./"
 base.dir <- serv.dir %&% "01_pca/public_mais/"
 work.dir <- base.dir %&% "04_mais_rsq90/"
 file.dir <- work.dir %&% "bigsnpr_output/"
@@ -14,7 +14,7 @@ plink.dir <- base.dir %&% "merged_mcps/"
 plink.pre <- "merged_reference_rsq90.merge.mcps.autosomes"
 bed.file <- plink.dir %&% plink.pre %&% ".bed"
 
-plink2<-"shared/software/plink2/plink2"
+plink2<-"./shared/software/plink2/plink2"
 
 # Determine related pairs of individuals
 ##rel <- snp_plinkKINGQC(
@@ -69,16 +69,3 @@ saveRDS(object=mac.threshold,file=file.dir %&% "mac.threshold.RDS") # MAC thresh
 obj.svd <- bed_autoSVD(obj.bed, ind.row = keep.indices, k = 20, min.mac=mac.threshold,
                        ncores = 1)
 saveRDS(object=obj.svd,file=file.dir %&% "svd_unrelateds_maf01.rds")
-
-## Printed output from command:
-## Phase of clumping (on MAC) at r^2 > 0.2..
-## keep 96311 variants.
-## Discarding 1296 variants with MAC < 89.
-## Iteration 1:
-## Computing SVD..
-## 39 outlier variants detected..
-## 1 long-range LD region detected..
-## Iteration 2:
-## Computing SVD..
-## 0 outlier variant detected..
-## Converged!

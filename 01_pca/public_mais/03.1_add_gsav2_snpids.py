@@ -1,17 +1,16 @@
 #!/usr/bin/python -O
 # Jason Matthew Torres
 '''
-
+Usage:
 module load Python/3.7.4-GCCcore-8.3.0
 python 03.1_script.py
-
 '''
 # libraries
 import sys,os
 
-work_dir = "popgen/01_pca/public_mais/"
+work_dir = "./popgen/01_pca/public_mais/"
 
-study_dir =  "projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/"
+study_dir =  "./projects/mcps/data/genetics_regeneron/freeze_150k/data/GSAv2_CHIP/pVCF/"
 study_name = "MCPS_Freeze_150.GT_hg38.pVCF"
 
 def create_snpdic_from_bim(study_dir,study_name):

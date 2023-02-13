@@ -5,7 +5,7 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 
-serv.dir <- ""
+serv.dir <- "./"
 work.dir0 <- serv.dir %&% "popgen/01_pca/public_mais/04_mais_rsq90/"
 work.dir <- serv.dir %&% "projects/popgen/01_pca/mcps_only/" %&%
   "reference_projections/ld_rsq01/"
@@ -38,10 +38,4 @@ obj.svd <- bed_autoSVD(obj.bed, ind.row = keep.indices, k = 20, min.mac=mac.thre
                        ncores = 1, thr.r2 = 0.01)
 saveRDS(object=obj.svd,file=file.dir %&% "svd_unrelateds_maf01-mcps-only.rds")
 
-#Phase of clumping (on MAC) at r^2 > 0.01..
-#keep 20017 variants. [previously 16579 variants with 1kg-imputed MAIS]
-#Discarding 1292 variants with MAC < 1169. [previously 482 variants with 1kg-imputed MAIS]
-#Iteration 1:
-#Computing SVD..
-#0 outlier variant detected..
-#Converged!
+

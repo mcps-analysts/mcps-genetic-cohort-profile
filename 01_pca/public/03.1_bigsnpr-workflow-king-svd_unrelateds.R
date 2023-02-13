@@ -6,7 +6,7 @@ library("tidyverse")
 library("bigsnpr")
 set.seed(1)
 
-serv.dir <- ""
+serv.dir <- "./"
 work.dir <- serv.dir %&% "projects/popgen/01_pca/public/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- work.dir %&% "merged_mcps/"
@@ -29,10 +29,10 @@ plink2<-"/apps/well/plink/2.00a-20170724/plink2"
 ## NOTE: Not enough memory for snp_plinkKINGQC command as written;
 ## Instead, running this command in the terminal:
 
-#/well/emberson/shared/software/plink2/plink2 \
-#  --bfile projects/popgen/01_pca/public/merged_mcps/merged_mcps-hgdp-1kg \
+#./shared/software/plink2/plink2 \
+#  --bfile ./projects/popgen/01_pca/public/merged_mcps/merged_mcps-hgdp-1kg \
 #  --king-table-filter 0.0884 --make-king-table \
-#  --out projects/popgen/01_pca/public/bigsnpr_output/king \
+#  --out ./projects/popgen/01_pca/public/bigsnpr_output/king \
 #  --threads 32 --memory 201479571968
 
 rel <- fread(file.dir %&% "king.kin0")

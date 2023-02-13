@@ -9,7 +9,7 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 
-serv.dir <- ""
+serv.dir <- "./"
 work.dir <- serv.dir %&% "popgen/pca/public/"
 file.dir <- work.dir %&% "bigsnpr_output/"
 plink.dir <- work.dir %&% "merged_mcps/"
