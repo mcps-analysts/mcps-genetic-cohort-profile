@@ -15,8 +15,7 @@ library("data.table")
 library("tidyverse")
 library("bigsnpr")
 
-serv.dir <- "/well/emberson/users/bjk420/"
-serv.dir <- "/Users/jasont/science/servers/FUSE1/users/bjk420/"
+serv.dir <- "./"
 work.dir0 <- serv.dir %&% "projects/popgen/01_pca/global_inmegen/imputed-topmed/04_mais_rsq90/"
 work.dir <- serv.dir %&% "projects/popgen/01_pca/mcps_only/" %&%
   "reference_projections/mais_hgdp_1kg/imputed-topmed/mais_rsq90/ld_rsq20/"
