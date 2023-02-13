@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Torres"
+  given-names: "Jason"
+  orcid: "https://orcid.org/0000-0002-7537-7035"
+- family-names: "Bot"
+  given-names: "Hew"
+  orcid: "https://orcid.org/0000-0002-0351-4053"
+title: "Coding scripts for population structure and ancestry analyses described in MCPS genetic cohort profile."
+version: v0.1.0-alpha
+doi: 10.5281/zenodo.7636708
+date-released: 2023-02-13
+url: "https://doi.org/10.5281/zenodo.7636708"
